@@ -17,6 +17,7 @@ npm run build
   Markdown.
 - Keep public APIs small and documented in `README.md`.
 - Add tests for protocol, storage, and WebSocket behavior when changing them.
+- Maintainer work should follow `WORKFLOW.md`.
 
 ## Pull Requests
 
