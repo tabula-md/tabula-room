@@ -30,6 +30,11 @@ Product direction:
 - Start built server: `npm start`
 - Test: `npm test`
 - Build: `npm run build`
+- Knowledge check: `npm run knowledge:check`
+- PR title: `npm run pr:title`
+- PR body: `npm run pr:body`
+- PR metadata: `npm run pr:metadata`
+- Sync GitHub labels: `npm run labels:sync`
 
 ## Repository Map
 

@@ -67,6 +67,19 @@ Every PR should explain:
   logging, CORS, rate limits, or payload limits are affected.
 - Risk: remaining operational or compatibility risk.
 
+Use the repo scripts after Graphite submit:
+
+```sh
+npm run pr:title -- --title "type(scope): summary"
+npm run pr:body -- --summary "..." --review-focus "..." --implementation-notes "..." --validation-automated "..." --security-impact "..." --risk "..." --evidence "..."
+npm run pr:metadata -- --label <Label> --agent <Agent> --session <Session>
+```
+
+Choose labels from `.github/labels.json`. Run
+`npm run pr:metadata -- --list-labels` to inspect the catalog.
+Run `npm run labels:sync` after label catalog changes so GitHub matches the
+repository-defined labels.
+
 For docs-only changes, validation is usually `npm test`, `npm run build`, or an
 explicit reason those commands were not needed.
 
@@ -74,6 +87,7 @@ explicit reason those commands were not needed.
 
 Use the smallest validation set that covers the risk:
 
+- Knowledge changes: `npm run knowledge:check`.
 - Protocol validation: `npm test`.
 - Server, storage, WebSocket, CORS, rate limit, or payload changes: `npm test`.
 - TypeScript, package, or CI changes: `npm run build`.
