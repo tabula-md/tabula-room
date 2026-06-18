@@ -72,6 +72,9 @@ npm test
 npm run build
 ```
 
+For maintainer and agent workflow, see `WORKFLOW.md`. Durable architecture and
+repository context lives in `knowledge/`.
+
 ## Configuration
 
 See `.env.example`.
