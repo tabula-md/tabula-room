@@ -12,6 +12,11 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
+    "pr:body": "node scripts/pr-body.mjs",
+    "pr:metadata": "node scripts/pr-metadata.mjs",
+    "pr:title": "node scripts/pr-title.mjs",
+    "labels:sync": "node scripts/sync-labels.mjs",
+    "knowledge:check": "node scripts/knowledge-check.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
