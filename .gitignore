@@ -3,5 +3,6 @@ dist/
 coverage/
 .env
 .tabula-room/
+.codex/hook-state/
 *.log
 .DS_Store

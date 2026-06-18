@@ -18,6 +18,7 @@ The default port is `3002`. Runtime snapshots are stored under
 # Validate
 
 ```sh
+npm run test:hooks
 npm test
 npm run build
 git diff --check
