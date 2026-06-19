@@ -11,6 +11,7 @@ import {
   validateRoomId,
 } from "./protocol.js";
 import { FileSnapshotStore } from "./storage/file-store.js";
+import { resolveServiceVersion } from "./version.js";
 
 type ServerOptions = {
   port?: number;
@@ -35,6 +36,7 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
   const maxPayloadBytes = options.maxPayloadBytes ?? numberFromEnv("TABULA_ROOM_MAX_PAYLOAD_BYTES", defaultMaxPayloadBytes);
   const rateLimitPerMinute =
     options.rateLimitPerMinute ?? numberFromEnv("TABULA_ROOM_RATE_LIMIT_PER_MINUTE", defaultRateLimitPerMinute);
+  const serviceVersion = resolveServiceVersion();
 
   const store = new FileSnapshotStore(dataDir);
   const app = express();
@@ -50,7 +52,7 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
     response.json({
       ok: true,
       service: "tabula-room",
-      version: process.env.npm_package_version ?? "0.1.0",
+      version: serviceVersion,
     });
   });
 
