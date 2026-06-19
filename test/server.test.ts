@@ -220,6 +220,16 @@ describe("tabula room server", () => {
     expect(client.connected).toBe(false);
   });
 
+  it("does not allow authorization headers for Socket.IO handshakes", async () => {
+    await request(baseUrl)
+      .options("/socket.io/?EIO=4&transport=polling")
+      .set("Origin", "http://localhost:5173")
+      .set("Access-Control-Request-Method", "GET")
+      .set("Access-Control-Request-Headers", "Authorization, Content-Type")
+      .expect(204)
+      .expect("access-control-allow-headers", "Content-Type");
+  });
+
   it("rate-limits burst snapshot writes", async () => {
     await restartServer({ rateLimitPerMinute: 1 });
 

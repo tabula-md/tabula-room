@@ -104,7 +104,7 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
         }
         callback(new Error("Origin is not allowed"), false);
       },
-      allowedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: ["Content-Type"],
       credentials: false,
     },
     maxHttpBufferSize: maxPayloadBytes,
