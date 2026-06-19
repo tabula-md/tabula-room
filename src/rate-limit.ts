@@ -1,5 +1,6 @@
 export type RateLimiter = {
   assertAllowed: (key: string) => void;
+  bucketCount: () => number;
 };
 
 type Bucket = {
@@ -17,6 +18,7 @@ export function createRateLimiter({
   now?: () => number;
 }): RateLimiter {
   const buckets = new Map<string, Bucket>();
+  let lastPrunedAt = 0;
 
   return {
     assertAllowed(key) {
@@ -25,6 +27,11 @@ export function createRateLimiter({
       }
 
       const timestamp = now();
+      if (timestamp - lastPrunedAt >= windowMs) {
+        pruneExpiredBuckets(buckets, timestamp, windowMs);
+        lastPrunedAt = timestamp;
+      }
+
       const bucket = buckets.get(key);
       if (!bucket || timestamp - bucket.startedAt >= windowMs) {
         buckets.set(key, { count: 1, startedAt: timestamp });
@@ -36,7 +43,18 @@ export function createRateLimiter({
         throw new RateLimitError();
       }
     },
+    bucketCount() {
+      return buckets.size;
+    },
   };
+}
+
+function pruneExpiredBuckets(buckets: Map<string, Bucket>, timestamp: number, windowMs: number) {
+  for (const [key, bucket] of buckets) {
+    if (timestamp - bucket.startedAt >= windowMs) {
+      buckets.delete(key);
+    }
+  }
 }
 
 export class RateLimitError extends Error {
