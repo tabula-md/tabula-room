@@ -95,6 +95,27 @@ describe("tabula room server", () => {
       .expect(413);
   });
 
+  it("returns clear 4xx errors for malformed snapshot payloads", async () => {
+    await request(baseUrl)
+      .put("/v1/rooms/room_123/snapshot")
+      .set("Content-Type", "application/json")
+      .send("{")
+      .expect(400)
+      .expect({ error: "Invalid JSON body" });
+
+    await request(baseUrl)
+      .put("/v1/rooms/room_123/snapshot")
+      .send({ ...snapshot, author: "client-a" })
+      .expect(400)
+      .expect({ error: "Unsupported encrypted envelope field author" });
+
+    await request(baseUrl)
+      .put("/v1/rooms/room_123/snapshot")
+      .send({ ...snapshot, iv: "bad=" })
+      .expect(400)
+      .expect({ error: "Invalid envelope iv" });
+  });
+
   it("applies CORS only to allowed origins", async () => {
     await request(baseUrl)
       .get("/health")
@@ -129,6 +150,19 @@ describe("tabula room server", () => {
       version: 2,
       ciphertext: "ZW5jcnlwdGVkX3VwZGF0ZQ",
     });
+  });
+
+  it("rejects malformed socket messages without disconnecting the client", async () => {
+    const client = connect();
+    await waitForConnect(client);
+    await emitWithAck(client, "room:join", { roomId: "room_123", clientId: "client_a" });
+
+    const errorEvent = waitForEvent<{ error: string }>(client, "room:error");
+    await expect(emitWithAck(client, "room:message", { ...snapshot, iv: "bad=" })).rejects.toThrow(
+      /Invalid envelope iv/,
+    );
+    await expect(errorEvent).resolves.toEqual({ error: "Invalid envelope iv" });
+    expect(client.connected).toBe(true);
   });
 
   function connect() {

@@ -257,6 +257,10 @@ function handleError(error: unknown, _request: Request, response: Response, _nex
     response.status(413).json({ error: "Request body is too large" });
     return;
   }
+  if (error && typeof error === "object" && "type" in error && error.type === "entity.parse.failed") {
+    response.status(400).json({ error: "Invalid JSON body" });
+    return;
+  }
   response.status(500).json({ error: "Internal server error" });
 }
 

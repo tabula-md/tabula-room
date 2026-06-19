@@ -20,6 +20,15 @@ describe("protocol validation", () => {
   it("rejects unsafe room ids", () => {
     expect(() => validateRoomId("../room")).toThrow(/Invalid room id/);
     expect(() => validateRoomId("room with space")).toThrow(/Invalid room id/);
+    expect(() => validateRoomId("")).toThrow(/Invalid room id/);
+    expect(() => validateRoomId("a".repeat(161))).toThrow(/Invalid room id/);
+  });
+
+  it("rejects unsafe client ids", () => {
+    expect(() => validateClientId("../client")).toThrow(/Invalid client id/);
+    expect(() => validateClientId("client with space")).toThrow(/Invalid client id/);
+    expect(() => validateClientId("")).toThrow(/Invalid client id/);
+    expect(() => validateClientId("a".repeat(161))).toThrow(/Invalid client id/);
   });
 
   it("validates encrypted envelopes without decrypting content", () => {
@@ -39,6 +48,57 @@ describe("protocol validation", () => {
         markdown: "# Secret",
       }),
     ).toThrow(/markdown/);
+    expect(() =>
+      validateEncryptedEnvelope({
+        ...envelope,
+        content: "secret",
+      }),
+    ).toThrow(/content/);
+  });
+
+  it("rejects unsupported envelope fields and invalid envelope shape", () => {
+    expect(() => validateEncryptedEnvelope(null)).toThrow(/must be an object/);
+    expect(() => validateEncryptedEnvelope([])).toThrow(/must be an object/);
+    expect(() =>
+      validateEncryptedEnvelope({
+        ...envelope,
+        author: "client-a",
+      }),
+    ).toThrow(/Unsupported encrypted envelope field author/);
+    expect(() => validateEncryptedEnvelope({ ...envelope, v: 2 })).toThrow(/Unsupported envelope version/);
+    expect(() => validateEncryptedEnvelope({ ...envelope, kind: "markdown" })).toThrow(/Invalid envelope kind/);
+    expect(() => validateEncryptedEnvelope({ ...envelope, version: -1 })).toThrow(/Invalid envelope version counter/);
+    expect(() => validateEncryptedEnvelope({ ...envelope, version: 1.5 })).toThrow(/Invalid envelope version counter/);
+  });
+
+  it("requires canonical base64url envelope fields", () => {
+    expect(() => validateEncryptedEnvelope({ ...envelope, iv: "abc=" })).toThrow(/Invalid envelope iv/);
+    expect(() => validateEncryptedEnvelope({ ...envelope, iv: "a" })).toThrow(/Invalid envelope iv/);
+    expect(() => validateEncryptedEnvelope({ ...envelope, iv: "" })).toThrow(/Invalid envelope iv/);
+    expect(() => validateEncryptedEnvelope({ ...envelope, iv: "a".repeat(513) })).toThrow(/Invalid envelope iv/);
+    expect(() => validateEncryptedEnvelope({ ...envelope, ciphertext: "cipher+text" })).toThrow(
+      /Invalid envelope ciphertext/,
+    );
+    expect(() => validateEncryptedEnvelope({ ...envelope, ciphertext: "" })).toThrow(/Invalid envelope ciphertext/);
+  });
+
+  it("requires a valid UTC ISO timestamp", () => {
+    expect(() => validateEncryptedEnvelope({ ...envelope, createdAt: "2026-06-18" })).toThrow(
+      /Invalid envelope timestamp/,
+    );
+    expect(() => validateEncryptedEnvelope({ ...envelope, createdAt: "2026-99-18T00:00:00.000Z" })).toThrow(
+      /Invalid envelope timestamp/,
+    );
+    expect(() => validateEncryptedEnvelope({ ...envelope, createdAt: "2026-06-18T00:00:00+09:00" })).toThrow(
+      /Invalid envelope timestamp/,
+    );
+
+    expect(
+      validateEncryptedEnvelope({
+        ...envelope,
+        createdAt: "2026-06-18T00:00:00Z",
+      }).createdAt,
+    ).toBe("2026-06-18T00:00:00Z");
   });
 
   it("rejects route mismatches and large payloads", () => {
@@ -47,9 +107,9 @@ describe("protocol validation", () => {
       validateEncryptedEnvelope(
         {
           ...envelope,
-          ciphertext: "a".repeat(128),
+          ciphertext: "YWJjZA",
         },
-        { maxPayloadBytes: 8 },
+        { maxPayloadBytes: 3 },
       ),
     ).toThrow(/too large/);
   });
