@@ -7,6 +7,17 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTabulaRoomServer } from "../src/server.js";
 
+type JoinedPayload = {
+  roomId: string;
+  clientId: string;
+  peerCount: number;
+};
+
+type PeersPayload = {
+  roomId: string;
+  peers: string[];
+};
+
 const snapshot = {
   v: 1,
   roomId: "room_123",
@@ -191,11 +202,12 @@ describe("tabula room server", () => {
     await waitForConnect(first);
     await waitForConnect(second);
 
-    await emitWithAck(first, "room:join", { roomId: "room_123", clientId: "client_a" });
-    await emitWithAck(second, "room:join", { roomId: "room_123", clientId: "client_b" });
+    await joinClient(first, "room_123", "client_a");
+    await joinClient(second, "room_123", "client_b");
 
     const received = waitForEvent(first, "room:message");
-    second.emit("room:message", {
+    const notEchoed = waitForNoEvent(second, "room:message");
+    await emitWithAck(second, "room:message", {
       ...snapshot,
       kind: "yjs-update",
       version: 2,
@@ -208,12 +220,57 @@ describe("tabula room server", () => {
       version: 2,
       ciphertext: "ZW5jcnlwdGVkX3VwZGF0ZQ",
     });
+    await notEchoed;
+  });
+
+  it("emits joined peer counts and room peer updates", async () => {
+    const first = connect();
+    const second = connect();
+    await waitForConnect(first);
+    await waitForConnect(second);
+
+    const firstPeers = waitForPeers(first, "room_123", ["client_a"]);
+    await expect(joinClient(first, "room_123", "client_a")).resolves.toEqual({
+      roomId: "room_123",
+      clientId: "client_a",
+      peerCount: 1,
+    });
+    await firstPeers;
+
+    const firstSeesBoth = waitForPeers(first, "room_123", ["client_a", "client_b"]);
+    const secondSeesBoth = waitForPeers(second, "room_123", ["client_a", "client_b"]);
+    await expect(joinClient(second, "room_123", "client_b")).resolves.toEqual({
+      roomId: "room_123",
+      clientId: "client_b",
+      peerCount: 2,
+    });
+    await Promise.all([firstSeesBoth, secondSeesBoth]);
+  });
+
+  it("updates peer lists when clients disconnect or switch rooms", async () => {
+    const first = connect();
+    const second = connect();
+    const third = connect();
+    await Promise.all([waitForConnect(first), waitForConnect(second), waitForConnect(third)]);
+
+    await joinClient(first, "room_123", "client_a");
+    await joinClient(second, "room_123", "client_b");
+    await joinClient(third, "other_room", "client_c");
+
+    const firstAfterSwitch = waitForPeers(first, "room_123", ["client_a"]);
+    const thirdAfterSwitch = waitForPeers(third, "other_room", ["client_b", "client_c"]);
+    await joinClient(second, "other_room", "client_b");
+    await Promise.all([firstAfterSwitch, thirdAfterSwitch]);
+
+    const thirdAfterDisconnect = waitForPeers(third, "other_room", ["client_c"]);
+    second.disconnect();
+    await thirdAfterDisconnect;
   });
 
   it("rejects malformed socket messages without disconnecting the client", async () => {
     const client = connect();
     await waitForConnect(client);
-    await emitWithAck(client, "room:join", { roomId: "room_123", clientId: "client_a" });
+    await joinClient(client, "room_123", "client_a");
 
     const errorEvent = waitForEvent<{ error: string }>(client, "room:error");
     await expect(emitWithAck(client, "room:message", { ...snapshot, iv: "bad=" })).rejects.toThrow(
@@ -240,10 +297,60 @@ function waitForConnect(socket: ClientSocket) {
   });
 }
 
-function waitForEvent<T>(socket: ClientSocket, event: string) {
-  return new Promise<T>((resolve) => {
-    socket.once(event, resolve);
+function waitForEvent<T>(socket: ClientSocket, event: string, timeoutMs = 1_000) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.off(event, onEvent);
+      reject(new Error(`Timed out waiting for ${event}`));
+    }, timeoutMs);
+    const onEvent = (payload: T) => {
+      clearTimeout(timer);
+      resolve(payload);
+    };
+    socket.once(event, onEvent);
   });
+}
+
+function waitForNoEvent(socket: ClientSocket, event: string, timeoutMs = 100) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.off(event, onEvent);
+      resolve();
+    }, timeoutMs);
+    const onEvent = () => {
+      clearTimeout(timer);
+      reject(new Error(`Unexpected ${event}`));
+    };
+    socket.once(event, onEvent);
+  });
+}
+
+function waitForPeers(socket: ClientSocket, roomId: string, peers: string[]) {
+  return new Promise<void>((resolve, reject) => {
+    const expectedPeers = [...peers].sort();
+    const timer = setTimeout(() => {
+      socket.off("room:peers", onPeers);
+      reject(new Error(`Timed out waiting for peers ${expectedPeers.join(",")}`));
+    }, 1_000);
+    const onPeers = (payload: PeersPayload) => {
+      if (payload.roomId !== roomId) {
+        return;
+      }
+      if (JSON.stringify([...payload.peers].sort()) !== JSON.stringify(expectedPeers)) {
+        return;
+      }
+      clearTimeout(timer);
+      socket.off("room:peers", onPeers);
+      resolve();
+    };
+    socket.on("room:peers", onPeers);
+  });
+}
+
+async function joinClient(socket: ClientSocket, roomId: string, clientId: string) {
+  const joined = waitForEvent<JoinedPayload>(socket, "room:joined");
+  await emitWithAck(socket, "room:join", { roomId, clientId });
+  return joined;
 }
 
 function emitWithAck(socket: ClientSocket, event: string, payload: unknown) {

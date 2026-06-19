@@ -120,10 +120,13 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
       try {
         const roomId = validateRoomId(payload?.roomId);
         const clientId = validateClientId(payload?.clientId);
-        await joinRoom({ socket, roomId, clientId, joinedClients, roomClients });
+        const previousRoomId = await joinRoom({ socket, roomId, clientId, joinedClients, roomClients });
         const peerCount = roomClients.get(roomId)?.size ?? 0;
         acknowledge?.({ ok: true });
         socket.emit("room:joined", { roomId, clientId, peerCount });
+        if (previousRoomId && previousRoomId !== roomId) {
+          emitPeers(io, roomClients, previousRoomId);
+        }
         emitPeers(io, roomClients, roomId);
       } catch (error) {
         acknowledge?.({ ok: false, error: errorMessage(error) });
@@ -156,7 +159,7 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
         return;
       }
       joinedClients.delete(socket.id);
-      roomClients.get(joined.roomId)?.delete(socket.id);
+      removeRoomClient(roomClients, joined.roomId, socket.id);
       emitPeers(io, roomClients, joined.roomId);
     });
   });
@@ -206,9 +209,9 @@ async function joinRoom({
   roomClients: Map<string, Map<string, string>>;
 }) {
   const previous = joinedClients.get(socket.id);
-  if (previous) {
+  if (previous && previous.roomId !== roomId) {
     await socket.leave(roomChannel(previous.roomId));
-    roomClients.get(previous.roomId)?.delete(socket.id);
+    removeRoomClient(roomClients, previous.roomId, socket.id);
   }
 
   await socket.join(roomChannel(roomId));
@@ -216,6 +219,18 @@ async function joinRoom({
   const clients = roomClients.get(roomId) ?? new Map<string, string>();
   clients.set(socket.id, clientId);
   roomClients.set(roomId, clients);
+  return previous?.roomId ?? null;
+}
+
+function removeRoomClient(roomClients: Map<string, Map<string, string>>, roomId: string, socketId: string) {
+  const clients = roomClients.get(roomId);
+  if (!clients) {
+    return;
+  }
+  clients.delete(socketId);
+  if (clients.size === 0) {
+    roomClients.delete(roomId);
+  }
 }
 
 function emitPeers(io: SocketIOServer, roomClients: Map<string, Map<string, string>>, roomId: string) {
