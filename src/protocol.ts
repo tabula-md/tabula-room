@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer";
+
 export const ENVELOPE_VERSION = 1;
 
 export const ENVELOPE_KINDS = ["yjs-update", "presence", "snapshot"] as const;
@@ -24,6 +26,9 @@ export type RoomMetadata = {
 const roomIdPattern = /^[a-zA-Z0-9_-]{1,160}$/;
 const clientIdPattern = /^[a-zA-Z0-9_-]{1,160}$/;
 const base64UrlPattern = /^[a-zA-Z0-9_-]+$/;
+const isoUtcTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+const envelopeFields = ["v", "roomId", "kind", "version", "iv", "ciphertext", "createdAt"] as const;
+const envelopeFieldSet = new Set<string>(envelopeFields);
 const forbiddenPlaintextFields = new Set(["roomKey", "key", "plaintext", "markdown", "text", "content"]);
 
 export function validateRoomId(value: unknown): string {
@@ -52,6 +57,9 @@ export function validateEncryptedEnvelope(
     if (forbiddenPlaintextFields.has(key)) {
       throw new ProtocolError(400, `Encrypted envelope must not include ${key}`);
     }
+    if (!envelopeFieldSet.has(key)) {
+      throw new ProtocolError(400, `Unsupported encrypted envelope field ${key}`);
+    }
   }
 
   const envelope = value as Partial<EncryptedEnvelope>;
@@ -76,31 +84,24 @@ export function validateEncryptedEnvelope(
     throw new ProtocolError(400, "Invalid envelope version counter");
   }
 
-  if (!isBase64Url(envelope.iv) || envelope.iv.length > 512) {
-    throw new ProtocolError(400, "Invalid envelope iv");
-  }
-
-  if (!isBase64Url(envelope.ciphertext)) {
-    throw new ProtocolError(400, "Invalid envelope ciphertext");
-  }
+  const iv = validateBase64UrlField(envelope.iv, "iv", { maxChars: 512 });
+  const ciphertext = validateBase64UrlField(envelope.ciphertext, "ciphertext");
 
   const maxPayloadBytes = options.maxPayloadBytes ?? 1024 * 1024;
-  if (estimateBase64UrlBytes(envelope.ciphertext) > maxPayloadBytes) {
+  if (ciphertext.byteLength > maxPayloadBytes) {
     throw new ProtocolError(413, "Encrypted envelope is too large");
   }
 
-  if (typeof envelope.createdAt !== "string" || Number.isNaN(Date.parse(envelope.createdAt))) {
-    throw new ProtocolError(400, "Invalid envelope timestamp");
-  }
+  const createdAt = validateCreatedAt(envelope.createdAt);
 
   return {
     v: ENVELOPE_VERSION,
     roomId,
     kind: envelope.kind,
     version,
-    iv: envelope.iv,
-    ciphertext: envelope.ciphertext,
-    createdAt: envelope.createdAt,
+    iv: iv.value,
+    ciphertext: ciphertext.value,
+    createdAt,
   };
 }
 
@@ -122,10 +123,44 @@ export class ProtocolError extends Error {
   }
 }
 
-function isBase64Url(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && base64UrlPattern.test(value);
+function validateBase64UrlField(value: unknown, fieldName: "iv" | "ciphertext", options: { maxChars?: number } = {}) {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new ProtocolError(400, `Invalid envelope ${fieldName}`);
+  }
+
+  if (options.maxChars !== undefined && value.length > options.maxChars) {
+    throw new ProtocolError(400, `Invalid envelope ${fieldName}`);
+  }
+
+  if (!base64UrlPattern.test(value) || value.length % 4 === 1) {
+    throw new ProtocolError(400, `Invalid envelope ${fieldName}`);
+  }
+
+  const decoded = Buffer.from(value, "base64url");
+  if (decoded.length === 0 || decoded.toString("base64url") !== value) {
+    throw new ProtocolError(400, `Invalid envelope ${fieldName}`);
+  }
+
+  return {
+    value,
+    byteLength: decoded.length,
+  };
 }
 
-function estimateBase64UrlBytes(value: string) {
-  return Math.floor((value.length * 3) / 4);
+function validateCreatedAt(value: unknown) {
+  if (typeof value !== "string" || !isoUtcTimestampPattern.test(value)) {
+    throw new ProtocolError(400, "Invalid envelope timestamp");
+  }
+
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    throw new ProtocolError(400, "Invalid envelope timestamp");
+  }
+
+  const expected = value.includes(".") ? value : value.replace("Z", ".000Z");
+  if (new Date(timestamp).toISOString() !== expected) {
+    throw new ProtocolError(400, "Invalid envelope timestamp");
+  }
+
+  return value;
 }
