@@ -9,7 +9,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx src/server.ts",
+    "dev:watch": "tsx watch src/server.ts",
     "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
     "pr:body": "node scripts/pr-body.mjs",
