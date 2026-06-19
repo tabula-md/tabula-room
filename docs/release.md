@@ -1,7 +1,7 @@
 # Release Procedure
 
 This document covers Tabula Room releases only. Tabula Room remains the
-ciphertext-only collaboration room server; it does not serve published pages,
+ciphertext-only collaboration room server; it does not serve public pages,
 plaintext Markdown, room keys, or generated artifacts.
 
 ## Release Artifact
