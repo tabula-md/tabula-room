@@ -9,8 +9,8 @@ remain ciphertext-only.
 Product direction:
 
 - Keep Tabula Room small and inspectable.
-- Preserve the Excalidraw-style room mental model: link-based rooms, browser-held
-  keys, opaque server transport.
+- Preserve the Tabula Room mental model: link-based rooms, browser-held keys,
+  and opaque server transport.
 - Treat `tabula-md` as the product app and this repository as the room server.
 - Do not add accounts, billing, search, moderation, or document processing
   without an explicit architecture decision.

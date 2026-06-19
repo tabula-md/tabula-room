@@ -8,7 +8,7 @@ tags: [runbook, production, docker, operations]
 # Scope
 
 This runbook covers production operation for Tabula Room itself. It does not
-cover Tabula.md app deployment or any public artifact serving system.
+cover Tabula.md app deployment.
 
 # Security Boundary
 
