@@ -30,6 +30,11 @@ const snapshot = {
   createdAt: "2026-06-18T00:00:00.000Z",
 } as const;
 
+const packageJson = JSON.parse(await fs.readFile(path.join(process.cwd(), "package.json"), "utf8")) as {
+  version: string;
+};
+const originalNpmPackageVersion = process.env.npm_package_version;
+
 describe("tabula room server", () => {
   let dataDir: string;
   let instance: ReturnType<typeof createTabulaRoomServer>;
@@ -37,6 +42,7 @@ describe("tabula room server", () => {
   const clients: ClientSocket[] = [];
 
   beforeEach(async () => {
+    delete process.env.npm_package_version;
     dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "tabula-room-"));
     await startServer();
   });
@@ -47,11 +53,16 @@ describe("tabula room server", () => {
     }
     await instance.close();
     await fs.rm(dataDir, { recursive: true, force: true });
+    if (originalNpmPackageVersion === undefined) {
+      delete process.env.npm_package_version;
+    } else {
+      process.env.npm_package_version = originalNpmPackageVersion;
+    }
   });
 
   it("serves health and room metadata", async () => {
     await request(baseUrl).get("/health").expect(200).expect(({ body }) => {
-      expect(body).toEqual({ ok: true, service: "tabula-room", version: "0.1.0" });
+      expect(body).toEqual({ ok: true, service: "tabula-room", version: packageJson.version });
     });
 
     await request(baseUrl)
@@ -64,6 +75,18 @@ describe("tabula room server", () => {
           snapshotVersion: null,
           updatedAt: null,
         });
+      });
+  });
+
+  it("allows npm package version to override package metadata in health", async () => {
+    process.env.npm_package_version = "9.8.7-test";
+    await restartServer();
+
+    await request(baseUrl)
+      .get("/health")
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({ ok: true, service: "tabula-room", version: "9.8.7-test" });
       });
   });
 
