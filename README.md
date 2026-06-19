@@ -147,7 +147,7 @@ Markdown.
 ## Maintainers
 
 For maintainer and agent workflow, see `WORKFLOW.md`. Durable architecture and
-repository context lives in `knowledge/`. Architecture decisions live in
-`docs/adr/`.
+repository context lives in `knowledge/`, including the production operations
+runbook. Architecture decisions live in `docs/adr/`.
 
 Report private security issues through the instructions in `SECURITY.md`.

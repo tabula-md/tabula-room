@@ -22,3 +22,6 @@ architecture, repository, and runbook context.
 
 - [Local development](runbooks/local-development.md) - how to run and validate
   the room server locally and with `tabula-md`.
+- [Production operations](runbooks/production-operations.md) - how to operate
+  the ciphertext-only room server with Docker, health checks, and persistent
+  snapshot storage.
