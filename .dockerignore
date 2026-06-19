@@ -1,0 +1,11 @@
+node_modules
+dist
+.tabula-room
+.git
+.github
+.codex
+coverage
+*.log
+.env
+.env.*
+!.env.example
