@@ -11,6 +11,7 @@ architecture, repository, and runbook context.
 
 - [Encrypted room security model](architecture/encrypted-room-security.md) -
   the server-side boundaries that keep Room ciphertext-only.
+- Architecture decision records live in `docs/adr/`.
 
 ## Repository
 
