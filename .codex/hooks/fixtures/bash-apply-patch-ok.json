@@ -1,0 +1,15 @@
+{
+  "kind": "patch-policy",
+  "name": "records apply_patch file classification",
+  "patch": "*** Begin Patch\n*** Update File: src/server.ts\n@@\n-const oldValue = true;\n+const oldValue = false;\n*** End Patch",
+  "expectedFiles": [
+    "src/server.ts"
+  ],
+  "expectedNeeds": {
+    "build": true,
+    "browser": false,
+    "unit": true,
+    "hooks": false
+  },
+  "expectedBrowserSuites": []
+}

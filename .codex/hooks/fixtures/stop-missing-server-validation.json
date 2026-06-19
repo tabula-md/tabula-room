@@ -1,0 +1,21 @@
+{
+  "kind": "validation-state",
+  "name": "recommends server validation for runtime changes",
+  "state": {
+    "changedFiles": {
+      "src/server.ts": "2026-06-17T00:00:00.000Z"
+    },
+    "required": {
+      "build": "2026-06-17T00:00:00.000Z",
+      "unit": "2026-06-17T00:00:00.000Z"
+    },
+    "requiredBrowserSuites": {},
+    "observed": {},
+    "observedBrowserSuites": {},
+    "updatedAt": "2026-06-17T00:00:00.000Z"
+  },
+  "expectedMissingCommands": [
+    "npm run build",
+    "npm test"
+  ]
+}

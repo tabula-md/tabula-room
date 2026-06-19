@@ -1,0 +1,6 @@
+{
+  "kind": "bash-policy",
+  "name": "blocks shell source writes",
+  "command": "cat <<'EOF' > src/server.ts\nexport const value = 1;\nEOF",
+  "expectedDecision": "block"
+}

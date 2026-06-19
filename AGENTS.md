@@ -31,10 +31,13 @@ Product direction:
 - Test: `npm test`
 - Build: `npm run build`
 - Knowledge check: `npm run knowledge:check`
-- PR title: `npm run pr:title`
-- PR body: `npm run pr:body`
-- PR metadata: `npm run pr:metadata`
+- Hook policy test: `npm run test:hooks`
+- PR handoff: `npm run pr:handoff`
+- PR readiness: `npm run pr:ready`
 - Sync GitHub labels: `npm run labels:sync`
+- Workflow doctor: `npm run workflow:doctor`
+- Workflow status: `npm run workflow:status`
+- Workflow sync after merge: `npm run workflow:sync`
 
 ## Repository Map
 

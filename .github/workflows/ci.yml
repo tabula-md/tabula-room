@@ -20,5 +20,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run knowledge:check
+      - run: npm run test:hooks
       - run: npm test
       - run: npm run build
