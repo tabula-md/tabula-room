@@ -9,6 +9,7 @@ tags: [runbook, local, development]
 
 ```sh
 npm install
+cp .env.example .env
 npm run dev
 ```
 
@@ -45,12 +46,12 @@ envelopes.
 # Useful Environment
 
 - `PORT`: HTTP and Socket.IO port.
-- `TABULA_ROOM_ALLOWED_ORIGINS`: comma-separated origin allowlist.
+- `TABULA_ROOM_ALLOWED_ORIGINS`: comma-separated browser origin allowlist.
 - `TABULA_ROOM_DATA_DIR`: encrypted snapshot data directory.
 - `TABULA_ROOM_MAX_PAYLOAD_BYTES`: HTTP and WebSocket payload limit.
 - `TABULA_ROOM_RATE_LIMIT_PER_MINUTE`: in-memory rate limit.
 
 # Related
 
-- [Encrypted room security model](/architecture/encrypted-room-security.md)
-- [Server repository map](/repo/server.md)
+- [Encrypted room security model](../architecture/encrypted-room-security.md)
+- [Server repository map](../repo/server.md)

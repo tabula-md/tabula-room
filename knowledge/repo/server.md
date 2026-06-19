@@ -32,5 +32,5 @@ tags: [repo, server, protocol]
 
 # Related
 
-- [Encrypted room security model](/architecture/encrypted-room-security.md)
-- [Local development](/runbooks/local-development.md)
+- [Encrypted room security model](../architecture/encrypted-room-security.md)
+- [Local development](../runbooks/local-development.md)
