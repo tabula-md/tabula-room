@@ -26,6 +26,8 @@ npm run dev
 
 The dev server listens on `http://localhost:3002` by default. Runtime snapshots
 are written to `.tabula-room/data` unless `TABULA_ROOM_DATA_DIR` is set.
+Use `npm run dev:watch` when you want the local server to restart on file
+changes.
 
 ## What It Does
 
