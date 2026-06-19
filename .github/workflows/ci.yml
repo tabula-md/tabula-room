@@ -23,4 +23,4 @@ jobs:
       - run: npm run test:hooks
       - run: npm test
       - run: npm run build
-      - run: docker build -t tabula-room:ci .
+      - run: npm run test:docker

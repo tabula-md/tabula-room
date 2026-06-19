@@ -25,6 +25,7 @@
     "workflow:status": "node scripts/workflow-status.mjs",
     "workflow:sync": "node scripts/workflow-sync.mjs",
     "test:hooks": "node scripts/test-codex-hooks.mjs",
+    "test:docker": "node scripts/docker-smoke.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -131,10 +131,11 @@ The image stores snapshots under `/data`.
 ```sh
 npm test
 npm run build
+npm run test:docker
 ```
 
-CI runs the knowledge check, hook policy tests, unit/integration tests, and the
-TypeScript build.
+CI runs the knowledge check, hook policy tests, unit/integration tests, the
+TypeScript build, and a Docker runtime smoke check against `/health`.
 
 ## Security Model
 
