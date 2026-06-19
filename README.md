@@ -40,7 +40,7 @@ changes.
 
 - It does not receive room keys.
 - It does not decrypt Markdown.
-- It does not serve public pages or generated public artifacts.
+- It does not serve pages or generated documents.
 - It does not index, search, moderate, or process document content.
 - It does not implement accounts, billing, permissions, or audit logs.
 
