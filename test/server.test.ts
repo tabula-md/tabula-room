@@ -356,6 +356,25 @@ describe("tabula room server", () => {
     await expect(errorEvent).resolves.toEqual({ error: "Rate limit exceeded" });
   });
 
+  it("does not rate-limit every socket in a room when one client sends", async () => {
+    await restartServer({ rateLimitPerMinute: 2 });
+    const first = connect();
+    const second = connect();
+    await Promise.all([waitForConnect(first), waitForConnect(second)]);
+    await joinClient(first, "room_123", "client_a");
+    await joinClient(second, "room_123", "client_b");
+
+    await emitWithAck(first, "room:message", { ...snapshot, kind: "presence" });
+    await emitWithAck(first, "room:message", { ...snapshot, kind: "presence", version: 2 });
+    await expect(
+      emitWithAck(second, "room:message", {
+        ...snapshot,
+        kind: "presence",
+        version: 3,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("rejects oversized socket payloads", async () => {
     const client = connect();
     await waitForConnect(client);

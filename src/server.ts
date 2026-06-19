@@ -144,7 +144,7 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
         if (!joined) {
           throw new SocketProtocolError("Join a room before sending messages");
         }
-        rateLimiter.assertAllowed(`message:${joined.roomId}`);
+        rateLimiter.assertAllowed(`message:${joined.roomId}:${socket.id}`);
         const envelope = validateEncryptedEnvelope(payload, {
           expectedRoomId: joined.roomId,
           maxPayloadBytes,
