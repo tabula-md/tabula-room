@@ -76,6 +76,64 @@ describe("tabula room server", () => {
       });
 
     await request(baseUrl).get("/v1/rooms/room_123/snapshot").expect(200).expect({ ...snapshot });
+
+    const stored = await fs.readFile(path.join(dataDir, "room_123", "snapshot.json"), "utf8");
+    const record = JSON.parse(stored) as { snapshot: unknown; updatedAt: string };
+    expect(record.snapshot).toEqual(snapshot);
+    expect(record.updatedAt).toEqual(expect.any(String));
+    expect(stored).not.toContain("roomKey");
+    expect(stored).not.toContain("plaintext");
+    expect(stored).not.toContain("markdown");
+  });
+
+  it("keeps only the latest encrypted snapshot", async () => {
+    const nextSnapshot = {
+      ...snapshot,
+      version: 2,
+      iv: "bmV4dF9pdg",
+      ciphertext: "bmV4dF9jaXBoZXJ0ZXh0",
+      createdAt: "2026-06-18T00:01:00.000Z",
+    } as const;
+
+    await request(baseUrl).put("/v1/rooms/room_123/snapshot").send(snapshot).expect(201);
+    await request(baseUrl)
+      .put("/v1/rooms/room_123/snapshot")
+      .send(nextSnapshot)
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.snapshotVersion).toBe(2);
+      });
+
+    await request(baseUrl).get("/v1/rooms/room_123/snapshot").expect(200).expect(nextSnapshot);
+  });
+
+  it("keeps encrypted snapshots across server restarts", async () => {
+    await request(baseUrl).put("/v1/rooms/room_123/snapshot").send(snapshot).expect(201);
+
+    await instance.close();
+    instance = createTabulaRoomServer({
+      dataDir,
+      allowedOrigins: ["http://localhost:5173"],
+      maxPayloadBytes: 256,
+      rateLimitPerMinute: 1000,
+    });
+    await new Promise<void>((resolve) => instance.server.listen(0, resolve));
+    const address = instance.server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+
+    await request(baseUrl).get("/v1/rooms/room_123/snapshot").expect(200).expect(snapshot);
+    await request(baseUrl)
+      .get("/v1/rooms/room_123")
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.snapshotVersion).toBe(1);
+        expect(body.updatedAt).toEqual(expect.any(String));
+      });
+  });
+
+  it("rejects path traversal room ids before snapshot storage", async () => {
+    await request(baseUrl).put("/v1/rooms/..%2Froom/snapshot").send(snapshot).expect(400);
+    await expect(fs.readdir(dataDir)).resolves.toEqual([]);
   });
 
   it("rejects room keys, plaintext fields, and oversized encrypted payloads", async () => {
