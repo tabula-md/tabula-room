@@ -25,6 +25,8 @@ type JoinedClient = {
   clientId: string;
 };
 
+type ShutdownProcess = Pick<NodeJS.Process, "once" | "exit">;
+
 const defaultPort = 3002;
 const defaultMaxPayloadBytes = 1024 * 1024;
 const defaultRateLimitPerMinute = 600;
@@ -327,8 +329,36 @@ class SocketProtocolError extends Error {
   }
 }
 
+export function installShutdownHandlers(
+  instance: Pick<ReturnType<typeof createTabulaRoomServer>, "close">,
+  processLike: ShutdownProcess = process,
+) {
+  let shuttingDown = false;
+
+  const shutdown = (signal: NodeJS.Signals) => {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+
+    void instance.close().then(
+      () => {
+        processLike.exit(0);
+      },
+      (error) => {
+        console.error(`Failed to stop Tabula Room after ${signal}: ${errorMessage(error)}`);
+        processLike.exit(1);
+      },
+    );
+  };
+
+  processLike.once("SIGTERM", shutdown);
+  processLike.once("SIGINT", shutdown);
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const instance = createTabulaRoomServer();
+  installShutdownHandlers(instance);
   await instance.start();
   const address = instance.server.address();
   const port = typeof address === "object" && address ? address.port : numberFromEnv("PORT", defaultPort);

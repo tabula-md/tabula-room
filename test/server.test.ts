@@ -1,11 +1,12 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { EventEmitter } from "node:events";
 import { AddressInfo } from "node:net";
 import { io as createClient, type Socket as ClientSocket } from "socket.io-client";
 import request from "supertest";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createTabulaRoomServer } from "../src/server.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTabulaRoomServer, installShutdownHandlers } from "../src/server.js";
 
 type JoinedPayload = {
   roomId: string;
@@ -419,6 +420,54 @@ describe("tabula room server", () => {
   }
 });
 
+describe("shutdown handling", () => {
+  it("closes the server once and exits successfully on SIGTERM", async () => {
+    const processLike = new FakeShutdownProcess();
+    let closeCalls = 0;
+
+    installShutdownHandlers(
+      {
+        close: async () => {
+          closeCalls += 1;
+        },
+      },
+      processLike,
+    );
+
+    processLike.emit("SIGTERM", "SIGTERM");
+    await flushMicrotasks();
+    processLike.emit("SIGINT", "SIGINT");
+    await flushMicrotasks();
+
+    expect(closeCalls).toBe(1);
+    expect(processLike.exitCode).toBe(0);
+  });
+
+  it("exits non-zero when server shutdown fails", async () => {
+    const processLike = new FakeShutdownProcess();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      installShutdownHandlers(
+        {
+          close: async () => {
+            throw new Error("close failed");
+          },
+        },
+        processLike,
+      );
+
+      processLike.emit("SIGINT", "SIGINT");
+      await flushMicrotasks();
+
+      expect(processLike.exitCode).toBe(1);
+      expect(errorSpy).toHaveBeenCalledWith("Failed to stop Tabula Room after SIGINT: close failed");
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+});
+
 function waitForConnect(socket: ClientSocket) {
   return new Promise<void>((resolve, reject) => {
     socket.once("connect", () => resolve());
@@ -491,5 +540,20 @@ function emitWithAck(socket: ClientSocket, event: string, payload: unknown) {
         reject(new Error(response.error ?? "Socket acknowledgement failed"));
       }
     });
+  });
+}
+
+class FakeShutdownProcess extends EventEmitter {
+  exitCode: number | null = null;
+
+  exit(code = 0): never {
+    this.exitCode = code;
+    return undefined as never;
+  }
+}
+
+function flushMicrotasks() {
+  return new Promise<void>((resolve) => {
+    setImmediate(resolve);
   });
 }
