@@ -122,6 +122,7 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
 
     socket.on("room:join", async (payload, acknowledge) => {
       try {
+        rateLimiter.assertAllowed(`join:${socket.id}`);
         const roomId = validateRoomId(payload?.roomId);
         const clientId = validateClientId(payload?.clientId);
         const previousRoomId = await joinRoom({ socket, roomId, clientId, joinedClients, roomClients });

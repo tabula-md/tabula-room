@@ -328,6 +328,30 @@ describe("tabula room server", () => {
     await thirdAfterDisconnect;
   });
 
+  it("rate-limits burst room joins per socket", async () => {
+    await restartServer({ rateLimitPerMinute: 2 });
+    const first = connect();
+    const second = connect();
+    await Promise.all([waitForConnect(first), waitForConnect(second)]);
+
+    await joinClient(first, "room_123", "client_a");
+    await joinClient(second, "room_123", "client_b");
+    await joinClient(first, "other_room", "client_a");
+
+    const errorEvent = waitForEvent<{ error: string }>(first, "room:error");
+    await expect(emitWithAck(first, "room:join", { roomId: "third_room", clientId: "client_a" })).rejects.toThrow(
+      /Rate limit exceeded/,
+    );
+    await expect(errorEvent).resolves.toEqual({ error: "Rate limit exceeded" });
+    expect(first.connected).toBe(true);
+
+    await expect(joinClient(second, "fourth_room", "client_b")).resolves.toEqual({
+      roomId: "fourth_room",
+      clientId: "client_b",
+      peerCount: 1,
+    });
+  });
+
   it("rejects malformed socket messages without disconnecting the client", async () => {
     const client = connect();
     await waitForConnect(client);

@@ -109,7 +109,7 @@ See `.env.example`.
 | `TABULA_ROOM_ALLOWED_ORIGINS` | localhost origins when unset | Comma-separated browser origin allowlist. Use the Tabula.md app origin in production. |
 | `TABULA_ROOM_DATA_DIR` | `.tabula-room/data` | Local encrypted snapshot directory. |
 | `TABULA_ROOM_MAX_PAYLOAD_BYTES` | `1048576` | HTTP JSON body, Socket.IO packet, and encrypted ciphertext byte limit. |
-| `TABULA_ROOM_RATE_LIMIT_PER_MINUTE` | `600` | In-memory per-minute limit for snapshot writes, socket connections, and room messages. |
+| `TABULA_ROOM_RATE_LIMIT_PER_MINUTE` | `600` | In-memory per-minute limit for snapshot writes, socket connections, room joins, and room messages. |
 
 Requests without an `Origin` header are allowed for server-to-server and CLI
 access. Browser requests with an `Origin` header must match the allowlist.
