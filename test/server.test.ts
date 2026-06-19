@@ -136,6 +136,22 @@ describe("tabula room server", () => {
       });
   });
 
+  it("does not serve invalid persisted snapshot records", async () => {
+    await fs.mkdir(path.join(dataDir, "room_123"), { recursive: true });
+    await fs.writeFile(
+      path.join(dataDir, "room_123", "snapshot.json"),
+      `${JSON.stringify({
+        snapshot: { ...snapshot, markdown: "# Secret" },
+        updatedAt: new Date().toISOString(),
+      })}\n`,
+    );
+
+    await request(baseUrl)
+      .get("/v1/rooms/room_123/snapshot")
+      .expect(500)
+      .expect({ error: "Internal server error" });
+  });
+
   it("rejects path traversal room ids before snapshot storage", async () => {
     await request(baseUrl).put("/v1/rooms/..%2Froom/snapshot").send(snapshot).expect(400);
     await expect(fs.readdir(dataDir)).resolves.toEqual([]);

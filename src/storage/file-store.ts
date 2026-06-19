@@ -51,7 +51,7 @@ export class FileSnapshotStore {
 
   private async readSnapshotRecord(roomId: string): Promise<SnapshotRecord | null> {
     try {
-      return JSON.parse(await fs.readFile(this.snapshotPath(roomId), "utf8")) as SnapshotRecord;
+      return parseSnapshotRecord(await fs.readFile(this.snapshotPath(roomId), "utf8"), roomId);
     } catch (error) {
       if (isNotFound(error)) {
         return null;
@@ -89,4 +89,50 @@ async function writeFileAtomically(filePath: string, data: string) {
 
 function isNotFound(error: unknown) {
   return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");
+}
+
+function parseSnapshotRecord(raw: string, roomId: string): SnapshotRecord {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new SnapshotStorageError("Invalid snapshot record");
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new SnapshotStorageError("Invalid snapshot record");
+  }
+
+  const record = value as Partial<SnapshotRecord>;
+  try {
+    return {
+      snapshot: validateEncryptedEnvelope(record.snapshot, {
+        expectedRoomId: roomId,
+        expectedKind: "snapshot",
+      }),
+      updatedAt: validateStoredTimestamp(record.updatedAt),
+    };
+  } catch {
+    throw new SnapshotStorageError("Invalid snapshot record");
+  }
+}
+
+function validateStoredTimestamp(value: unknown) {
+  if (typeof value !== "string") {
+    throw new SnapshotStorageError("Invalid snapshot record");
+  }
+
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp) || new Date(timestamp).toISOString() !== value) {
+    throw new SnapshotStorageError("Invalid snapshot record");
+  }
+
+  return value;
+}
+
+class SnapshotStorageError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SnapshotStorageError";
+  }
 }
