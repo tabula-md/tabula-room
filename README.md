@@ -40,6 +40,7 @@ changes.
 
 - It does not receive room keys.
 - It does not decrypt Markdown.
+- It does not serve published pages or generated public artifacts.
 - It does not index, search, moderate, or process document content.
 - It does not implement accounts, billing, permissions, or audit logs.
 
@@ -146,6 +147,7 @@ Markdown.
 ## Maintainers
 
 For maintainer and agent workflow, see `WORKFLOW.md`. Durable architecture and
-repository context lives in `knowledge/`.
+repository context lives in `knowledge/`. Architecture decisions live in
+`docs/adr/`.
 
 Report private security issues through the instructions in `SECURITY.md`.
