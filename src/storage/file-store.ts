@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { type EncryptedEnvelope, type RoomMetadata, validateRoomId } from "../protocol.js";
+import { type EncryptedEnvelope, type RoomMetadata, validateEncryptedEnvelope, validateRoomId } from "../protocol.js";
 
 type SnapshotRecord = {
   snapshot: EncryptedEnvelope;
@@ -27,15 +28,19 @@ export class FileSnapshotStore {
     return record?.snapshot ?? null;
   }
 
-  async writeSnapshot(snapshot: EncryptedEnvelope): Promise<RoomMetadata> {
-    const roomId = validateRoomId(snapshot.roomId);
+  async writeSnapshot(snapshotInput: EncryptedEnvelope): Promise<RoomMetadata> {
+    const roomId = validateRoomId(snapshotInput.roomId);
+    const snapshot = validateEncryptedEnvelope(snapshotInput, {
+      expectedRoomId: roomId,
+      expectedKind: "snapshot",
+    });
     const record: SnapshotRecord = {
       snapshot,
       updatedAt: new Date().toISOString(),
     };
     const roomDir = this.roomDir(roomId);
     await fs.mkdir(roomDir, { recursive: true });
-    await fs.writeFile(this.snapshotPath(roomId), `${JSON.stringify(record, null, 2)}\n`);
+    await writeFileAtomically(this.snapshotPath(roomId), `${JSON.stringify(record, null, 2)}\n`);
     return {
       roomId,
       activeConnections: 0,
@@ -56,11 +61,29 @@ export class FileSnapshotStore {
   }
 
   private roomDir(roomId: string) {
-    return path.join(this.dataDir, roomId);
+    const root = path.resolve(this.dataDir);
+    const roomDir = path.resolve(root, roomId);
+    if (roomDir !== root && !roomDir.startsWith(`${root}${path.sep}`)) {
+      throw new Error("Invalid snapshot path");
+    }
+    return roomDir;
   }
 
   private snapshotPath(roomId: string) {
     return path.join(this.roomDir(roomId), "snapshot.json");
+  }
+}
+
+async function writeFileAtomically(filePath: string, data: string) {
+  const directory = path.dirname(filePath);
+  const temporaryPath = path.join(directory, `.snapshot.${process.pid}.${randomUUID()}.tmp`);
+
+  try {
+    await fs.writeFile(temporaryPath, data, { flag: "wx" });
+    await fs.rename(temporaryPath, filePath);
+  } catch (error) {
+    await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
+    throw error;
   }
 }
 
