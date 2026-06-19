@@ -98,7 +98,11 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
   const io = new SocketIOServer(server, {
     cors: {
       origin: (origin, callback) => {
-        callback(null, isAllowedOrigin(origin, allowedOrigins));
+        if (isAllowedOrigin(origin, allowedOrigins)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error("Origin is not allowed"), false);
       },
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: false,
@@ -245,7 +249,11 @@ function roomChannel(roomId: string) {
 function applyCors(allowedOrigins: string[] | null) {
   return (request: Request, response: Response, next: NextFunction) => {
     const origin = request.headers.origin;
-    if (typeof origin === "string" && isAllowedOrigin(origin, allowedOrigins)) {
+    if (typeof origin === "string") {
+      if (!isAllowedOrigin(origin, allowedOrigins)) {
+        response.status(403).json({ error: "Origin is not allowed" });
+        return;
+      }
       response.setHeader("access-control-allow-origin", origin);
       response.setHeader("vary", "origin");
     }

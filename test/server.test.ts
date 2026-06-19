@@ -18,6 +18,8 @@ type PeersPayload = {
   peers: string[];
 };
 
+type TestServerOptions = Parameters<typeof createTabulaRoomServer>[0];
+
 const snapshot = {
   v: 1,
   roomId: "room_123",
@@ -36,15 +38,7 @@ describe("tabula room server", () => {
 
   beforeEach(async () => {
     dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "tabula-room-"));
-    instance = createTabulaRoomServer({
-      dataDir,
-      allowedOrigins: ["http://localhost:5173"],
-      maxPayloadBytes: 256,
-      rateLimitPerMinute: 1000,
-    });
-    await new Promise<void>((resolve) => instance.server.listen(0, resolve));
-    const address = instance.server.address() as AddressInfo;
-    baseUrl = `http://127.0.0.1:${address.port}`;
+    await startServer();
   });
 
   afterEach(async () => {
@@ -185,15 +179,56 @@ describe("tabula room server", () => {
       .expect({ error: "Invalid envelope iv" });
   });
 
-  it("applies CORS only to allowed origins", async () => {
+  it("allows configured CORS origins and rejects disallowed origins", async () => {
     await request(baseUrl)
       .get("/health")
       .set("Origin", "http://localhost:5173")
       .expect("access-control-allow-origin", "http://localhost:5173");
 
-    await request(baseUrl).get("/health").set("Origin", "https://evil.example").expect((response) => {
-      expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+    await request(baseUrl)
+      .options("/v1/rooms/room_123/snapshot")
+      .set("Origin", "http://localhost:5173")
+      .expect(204)
+      .expect("access-control-allow-origin", "http://localhost:5173");
+
+    await request(baseUrl)
+      .get("/health")
+      .set("Origin", "https://evil.example")
+      .expect(403)
+      .expect({ error: "Origin is not allowed" });
+
+    await request(baseUrl)
+      .options("/v1/rooms/room_123/snapshot")
+      .set("Origin", "https://evil.example")
+      .expect(403)
+      .expect({ error: "Origin is not allowed" });
+  });
+
+  it("rejects disallowed Socket.IO origins", async () => {
+    const client = createClient(baseUrl, {
+      transports: ["websocket"],
+      forceNew: true,
+      reconnection: false,
+      timeout: 500,
+      extraHeaders: {
+        Origin: "https://evil.example",
+      },
     });
+    clients.push(client);
+
+    await expect(waitForConnect(client)).rejects.toBeTruthy();
+    expect(client.connected).toBe(false);
+  });
+
+  it("rate-limits burst snapshot writes", async () => {
+    await restartServer({ rateLimitPerMinute: 1 });
+
+    await request(baseUrl).put("/v1/rooms/room_123/snapshot").send(snapshot).expect(201);
+    await request(baseUrl)
+      .put("/v1/rooms/room_123/snapshot")
+      .send(snapshot)
+      .expect(429)
+      .expect({ error: "Rate limit exceeded" });
   });
 
   it("relays encrypted room messages between joined clients", async () => {
@@ -280,6 +315,37 @@ describe("tabula room server", () => {
     expect(client.connected).toBe(true);
   });
 
+  it("rate-limits burst socket messages", async () => {
+    await restartServer({ rateLimitPerMinute: 1 });
+    const client = connect();
+    await waitForConnect(client);
+    await joinClient(client, "room_123", "client_a");
+
+    await emitWithAck(client, "room:message", { ...snapshot, kind: "presence" });
+
+    const errorEvent = waitForEvent<{ error: string }>(client, "room:error");
+    await expect(emitWithAck(client, "room:message", { ...snapshot, kind: "presence", version: 2 })).rejects.toThrow(
+      /Rate limit exceeded/,
+    );
+    await expect(errorEvent).resolves.toEqual({ error: "Rate limit exceeded" });
+  });
+
+  it("rejects oversized socket payloads", async () => {
+    const client = connect();
+    await waitForConnect(client);
+    await joinClient(client, "room_123", "client_a");
+
+    const disconnected = waitForEvent<string>(client, "disconnect");
+    client.emit("room:message", {
+      ...snapshot,
+      kind: "yjs-update",
+      ciphertext: "a".repeat(50_000),
+    });
+
+    await expect(disconnected).resolves.toEqual(expect.any(String));
+    expect(client.connected).toBe(false);
+  });
+
   function connect() {
     const client = createClient(baseUrl, {
       transports: ["websocket"],
@@ -287,6 +353,24 @@ describe("tabula room server", () => {
     });
     clients.push(client);
     return client;
+  }
+
+  async function startServer(options: TestServerOptions = {}) {
+    instance = createTabulaRoomServer({
+      dataDir,
+      allowedOrigins: ["http://localhost:5173"],
+      maxPayloadBytes: 256,
+      rateLimitPerMinute: 1000,
+      ...options,
+    });
+    await new Promise<void>((resolve) => instance.server.listen(0, resolve));
+    const address = instance.server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${address.port}`;
+  }
+
+  async function restartServer(options: TestServerOptions = {}) {
+    await instance.close();
+    await startServer(options);
   }
 });
 
