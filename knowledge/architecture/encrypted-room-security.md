@@ -45,5 +45,5 @@ envelopes to this server.
 
 # Related
 
-- [Server repository map](/repo/server.md)
-- [Local development](/runbooks/local-development.md)
+- [Server repository map](../repo/server.md)
+- [Local development](../runbooks/local-development.md)
