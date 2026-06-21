@@ -71,8 +71,8 @@ The expected JSON shape is:
 { "ok": true, "service": "tabula-room", "version": "0.1.0" }
 ```
 
-Use `npm run test:docker` before shipping an image. It builds the image, starts
-a container on a random local port, and verifies `/health`.
+Use `npm run test:docker` before deploying a locally built image. It builds the
+image, starts a container on a random local port, and verifies `/health`.
 
 # Deploy
 
