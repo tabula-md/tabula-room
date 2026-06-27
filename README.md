@@ -66,7 +66,7 @@ Allowed `kind` values are `yjs-update`, `presence`, and `snapshot`. `iv` and
 Room links keep keys in the browser URL fragment:
 
 ```txt
-/r/:roomId#key=:roomKey
+https://tabula.md/#room=:roomId,:roomKey
 ```
 
 The fragment is not sent in HTTP requests, so `roomKey` must never reach this

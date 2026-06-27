@@ -37,7 +37,7 @@ Then start a live room in the app. The share URL should keep the key in the
 fragment:
 
 ```txt
-/r/:roomId#key=:roomKey
+https://tabula.md/#room=:roomId,:roomKey
 ```
 
 The server should receive only `roomId`, socket membership, and encrypted
