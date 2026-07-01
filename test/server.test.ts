@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { EventEmitter } from "node:events";
 import { AddressInfo } from "node:net";
@@ -37,14 +36,12 @@ const packageJson = JSON.parse(await fs.readFile(path.join(process.cwd(), "packa
 const originalNpmPackageVersion = process.env.npm_package_version;
 
 describe("tabula room server", () => {
-  let dataDir: string;
   let instance: ReturnType<typeof createTabulaRoomServer>;
   let baseUrl: string;
   const clients: ClientSocket[] = [];
 
   beforeEach(async () => {
     delete process.env.npm_package_version;
-    dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "tabula-room-"));
     await startServer();
   });
 
@@ -53,7 +50,6 @@ describe("tabula room server", () => {
       client.disconnect();
     }
     await instance.close();
-    await fs.rm(dataDir, { recursive: true, force: true });
     if (originalNpmPackageVersion === undefined) {
       delete process.env.npm_package_version;
     } else {
@@ -73,8 +69,6 @@ describe("tabula room server", () => {
         expect(body).toEqual({
           roomId: "room_123",
           activeConnections: 0,
-          snapshotVersion: null,
-          updatedAt: null,
         });
       });
   });
@@ -91,132 +85,9 @@ describe("tabula room server", () => {
       });
   });
 
-  it("stores and returns encrypted snapshots", async () => {
+  it("does not expose room snapshot HTTP storage", async () => {
     await request(baseUrl).get("/v1/rooms/room_123/snapshot").expect(404);
-
-    await request(baseUrl)
-      .put("/v1/rooms/room_123/snapshot")
-      .send(snapshot)
-      .expect(201)
-      .expect(({ body }) => {
-        expect(body.roomId).toBe("room_123");
-        expect(body.snapshotVersion).toBe(1);
-        expect(body.updatedAt).toEqual(expect.any(String));
-      });
-
-    await request(baseUrl).get("/v1/rooms/room_123/snapshot").expect(200).expect({ ...snapshot });
-
-    const stored = await fs.readFile(path.join(dataDir, "room_123", "snapshot.json"), "utf8");
-    const record = JSON.parse(stored) as { snapshot: unknown; updatedAt: string };
-    expect(record.snapshot).toEqual(snapshot);
-    expect(record.updatedAt).toEqual(expect.any(String));
-    expect(stored).not.toContain("roomKey");
-    expect(stored).not.toContain("plaintext");
-    expect(stored).not.toContain("markdown");
-  });
-
-  it("keeps only the latest encrypted snapshot", async () => {
-    const nextSnapshot = {
-      ...snapshot,
-      version: 2,
-      iv: "bmV4dF9pdg",
-      ciphertext: "bmV4dF9jaXBoZXJ0ZXh0",
-      createdAt: "2026-06-18T00:01:00.000Z",
-    } as const;
-
-    await request(baseUrl).put("/v1/rooms/room_123/snapshot").send(snapshot).expect(201);
-    await request(baseUrl)
-      .put("/v1/rooms/room_123/snapshot")
-      .send(nextSnapshot)
-      .expect(201)
-      .expect(({ body }) => {
-        expect(body.snapshotVersion).toBe(2);
-      });
-
-    await request(baseUrl).get("/v1/rooms/room_123/snapshot").expect(200).expect(nextSnapshot);
-  });
-
-  it("keeps encrypted snapshots across server restarts", async () => {
-    await request(baseUrl).put("/v1/rooms/room_123/snapshot").send(snapshot).expect(201);
-
-    await instance.close();
-    instance = createTabulaRoomServer({
-      dataDir,
-      allowedOrigins: ["http://localhost:5173"],
-      maxPayloadBytes: 256,
-      rateLimitPerMinute: 1000,
-    });
-    await new Promise<void>((resolve) => instance.server.listen(0, resolve));
-    const address = instance.server.address() as AddressInfo;
-    baseUrl = `http://127.0.0.1:${address.port}`;
-
-    await request(baseUrl).get("/v1/rooms/room_123/snapshot").expect(200).expect(snapshot);
-    await request(baseUrl)
-      .get("/v1/rooms/room_123")
-      .expect(200)
-      .expect(({ body }) => {
-        expect(body.snapshotVersion).toBe(1);
-        expect(body.updatedAt).toEqual(expect.any(String));
-      });
-  });
-
-  it("does not serve invalid persisted snapshot records", async () => {
-    await fs.mkdir(path.join(dataDir, "room_123"), { recursive: true });
-    await fs.writeFile(
-      path.join(dataDir, "room_123", "snapshot.json"),
-      `${JSON.stringify({
-        snapshot: { ...snapshot, markdown: "# Secret" },
-        updatedAt: new Date().toISOString(),
-      })}\n`,
-    );
-
-    await request(baseUrl)
-      .get("/v1/rooms/room_123/snapshot")
-      .expect(500)
-      .expect({ error: "Internal server error" });
-  });
-
-  it("rejects path traversal room ids before snapshot storage", async () => {
-    await request(baseUrl).put("/v1/rooms/..%2Froom/snapshot").send(snapshot).expect(400);
-    await expect(fs.readdir(dataDir)).resolves.toEqual([]);
-  });
-
-  it("rejects room keys, plaintext fields, and oversized encrypted payloads", async () => {
-    await request(baseUrl)
-      .put("/v1/rooms/room_123/snapshot")
-      .send({ ...snapshot, roomKey: "secret" })
-      .expect(400);
-
-    await request(baseUrl)
-      .put("/v1/rooms/room_123/snapshot")
-      .send({ ...snapshot, markdown: "# Secret" })
-      .expect(400);
-
-    await request(baseUrl)
-      .put("/v1/rooms/room_123/snapshot")
-      .send({ ...snapshot, ciphertext: "a".repeat(400) })
-      .expect(413);
-  });
-
-  it("returns clear 4xx errors for malformed snapshot payloads", async () => {
-    await request(baseUrl)
-      .put("/v1/rooms/room_123/snapshot")
-      .set("Content-Type", "application/json")
-      .send("{")
-      .expect(400)
-      .expect({ error: "Invalid JSON body" });
-
-    await request(baseUrl)
-      .put("/v1/rooms/room_123/snapshot")
-      .send({ ...snapshot, author: "client-a" })
-      .expect(400)
-      .expect({ error: "Unsupported encrypted envelope field author" });
-
-    await request(baseUrl)
-      .put("/v1/rooms/room_123/snapshot")
-      .send({ ...snapshot, iv: "bad=" })
-      .expect(400)
-      .expect({ error: "Invalid envelope iv" });
+    await request(baseUrl).put("/v1/rooms/room_123/snapshot").send(snapshot).expect(404);
   });
 
   it("allows configured CORS origins and rejects disallowed origins", async () => {
@@ -226,7 +97,7 @@ describe("tabula room server", () => {
       .expect("access-control-allow-origin", "http://localhost:5173");
 
     await request(baseUrl)
-      .options("/v1/rooms/room_123/snapshot")
+      .options("/v1/rooms/room_123")
       .set("Origin", "http://localhost:5173")
       .expect(204)
       .expect("access-control-allow-origin", "http://localhost:5173");
@@ -238,7 +109,7 @@ describe("tabula room server", () => {
       .expect({ error: "Origin is not allowed" });
 
     await request(baseUrl)
-      .options("/v1/rooms/room_123/snapshot")
+      .options("/v1/rooms/room_123")
       .set("Origin", "https://evil.example")
       .expect(403)
       .expect({ error: "Origin is not allowed" });
@@ -270,17 +141,6 @@ describe("tabula room server", () => {
       .expect("access-control-allow-headers", "Content-Type");
   });
 
-  it("rate-limits burst snapshot writes", async () => {
-    await restartServer({ rateLimitPerMinute: 1 });
-
-    await request(baseUrl).put("/v1/rooms/room_123/snapshot").send(snapshot).expect(201);
-    await request(baseUrl)
-      .put("/v1/rooms/room_123/snapshot")
-      .send(snapshot)
-      .expect(429)
-      .expect({ error: "Rate limit exceeded" });
-  });
-
   it("relays encrypted room messages between joined clients", async () => {
     const first = connect();
     const second = connect();
@@ -308,6 +168,32 @@ describe("tabula room server", () => {
     await notEchoed;
   });
 
+  it("relays volatile encrypted room messages without echoing the sender", async () => {
+    const first = connect();
+    const second = connect();
+    await waitForConnect(first);
+    await waitForConnect(second);
+
+    await joinClient(first, "room_123", "client_a");
+    await joinClient(second, "room_123", "client_b");
+
+    const received = waitForEvent(first, "room:message");
+    const notEchoed = waitForNoEvent(second, "room:message");
+    await emitWithAck(second, "room:volatile-message", {
+      ...snapshot,
+      kind: "presence",
+      version: 2,
+      ciphertext: "dm9sYXRpbGU",
+    });
+
+    await expect(received).resolves.toMatchObject({
+      roomId: "room_123",
+      kind: "presence",
+      ciphertext: "dm9sYXRpbGU",
+    });
+    await notEchoed;
+  });
+
   it("emits joined peer counts and room peer updates", async () => {
     const first = connect();
     const second = connect();
@@ -324,12 +210,14 @@ describe("tabula room server", () => {
 
     const firstSeesBoth = waitForPeers(first, "room_123", ["client_a", "client_b"]);
     const secondSeesBoth = waitForPeers(second, "room_123", ["client_a", "client_b"]);
+    const firstSeesPeerJoined = waitForEvent(first, "room:peer-joined");
     await expect(joinClient(second, "room_123", "client_b")).resolves.toEqual({
       roomId: "room_123",
       clientId: "client_b",
       peerCount: 2,
     });
     await Promise.all([firstSeesBoth, secondSeesBoth]);
+    await expect(firstSeesPeerJoined).resolves.toEqual({ roomId: "room_123", clientId: "client_b" });
   });
 
   it("updates peer lists when clients disconnect or switch rooms", async () => {
@@ -450,7 +338,6 @@ describe("tabula room server", () => {
 
   async function startServer(options: TestServerOptions = {}) {
     instance = createTabulaRoomServer({
-      dataDir,
       allowedOrigins: ["http://localhost:5173"],
       maxPayloadBytes: 256,
       rateLimitPerMinute: 1000,

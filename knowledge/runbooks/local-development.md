@@ -13,8 +13,8 @@ cp .env.example .env
 npm run dev
 ```
 
-The default port is `3002`. Runtime snapshots are stored under
-`.tabula-room/data` unless `TABULA_ROOM_DATA_DIR` is set.
+The default port is `3002`. The server is relay-only and does not create a room
+snapshot data directory.
 
 # Validate
 
@@ -47,7 +47,6 @@ envelopes.
 
 - `PORT`: HTTP and Socket.IO port.
 - `TABULA_ROOM_ALLOWED_ORIGINS`: comma-separated browser origin allowlist.
-- `TABULA_ROOM_DATA_DIR`: encrypted snapshot data directory.
 - `TABULA_ROOM_MAX_PAYLOAD_BYTES`: HTTP and WebSocket payload limit.
 - `TABULA_ROOM_RATE_LIMIT_PER_MINUTE`: in-memory rate limit.
 

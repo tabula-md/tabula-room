@@ -67,6 +67,7 @@ describe("protocol validation", () => {
     ).toThrow(/Unsupported encrypted envelope field author/);
     expect(() => validateEncryptedEnvelope({ ...envelope, v: 2 })).toThrow(/Unsupported envelope version/);
     expect(() => validateEncryptedEnvelope({ ...envelope, kind: "markdown" })).toThrow(/Invalid envelope kind/);
+    expect(validateEncryptedEnvelope({ ...envelope, kind: "state-init" }).kind).toBe("state-init");
     expect(() => validateEncryptedEnvelope({ ...envelope, version: -1 })).toThrow(/Invalid envelope version counter/);
     expect(() => validateEncryptedEnvelope({ ...envelope, version: 1.5 })).toThrow(/Invalid envelope version counter/);
   });

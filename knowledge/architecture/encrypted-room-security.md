@@ -1,7 +1,7 @@
 ---
 type: Architecture Constraint
 title: Encrypted room security model
-description: Tabula Room relays and stores encrypted envelopes without room keys or plaintext Markdown.
+description: Tabula Room relays encrypted envelopes without room keys or plaintext Markdown.
 tags: [architecture, security, collaboration, e2ee]
 ---
 
@@ -30,14 +30,14 @@ envelopes to this server.
 - decrypted Yjs updates
 - decrypted presence data
 - user document contents
-- fallback plaintext snapshots
+- fallback plaintext snapshots or recovery state
 
 # Consequences
 
 - The server cannot index, search, moderate, summarize, or agent-process room
   content.
-- Snapshot recovery is possible only because the client can decrypt the stored
-  envelope.
+- Live recovery is outside this server. The Tabula.md app may use Firebase or a
+  compatible encrypted recovery store.
 - Observability must avoid payload logging. Prefer counts, sizes, status codes,
   and room ids.
 - Any feature that needs server-side plaintext requires a new architecture
