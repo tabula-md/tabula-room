@@ -5,8 +5,9 @@ ciphertext-only collaboration room server; it does not serve pages, plaintext
 Markdown, room keys, or generated documents.
 
 Tabula Room does not publish an official Docker image for v0. The repository
-ships source, a Dockerfile, and CI/runtime checks. Maintainers can build a Docker
-image locally from a tagged checkout when they need one.
+ships source, a Dockerfile, pm2 production config, nginx template, and
+CI/runtime checks. Maintainers deploy a tagged checkout to the hosted VM or
+build a Docker image locally when they need one.
 
 ## Before Tagging
 
@@ -62,6 +63,22 @@ The response must include:
 ```
 
 Stop the release-check container after verification.
+
+## Deploy To Hosted VM
+
+From a clean tagged checkout on the VM:
+
+```sh
+npm ci
+npm run build
+TABULA_ROOM_ALLOWED_ORIGINS=https://tabula.md,https://www.tabula.md \
+  pm2 start pm2.production.cjs --update-env
+pm2 save
+curl -fsS http://127.0.0.1:3002/health
+```
+
+nginx should use `ops/nginx/rooms.tabula.md.conf` as the site template and
+terminate public traffic for `rooms.tabula.md`.
 
 ## Rollback
 

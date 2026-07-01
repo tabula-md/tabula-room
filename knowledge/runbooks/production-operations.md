@@ -2,7 +2,7 @@
 type: Runbook
 title: Production operations
 description: How to operate Tabula Room as a small ciphertext-only service.
-tags: [runbook, production, docker, operations]
+tags: [runbook, production, vm, nginx, pm2, operations]
 ---
 
 # Scope
@@ -39,6 +39,39 @@ Do not use `TABULA_ROOM_ALLOWED_ORIGINS=*` for public production deployments.
 Requests without an `Origin` header are allowed for server-to-server and CLI
 health checks.
 
+# Preferred VM Shape
+
+The preferred v0 hosted shape is:
+
+```text
+rooms.tabula.md
+  -> nginx on a small Ubuntu VM
+  -> 127.0.0.1:3002
+  -> tabula-room Node process managed by pm2
+```
+
+This keeps the Socket.IO relay on one predictable process while launch traffic
+is small. Do not run multiple VM/process instances until Socket.IO room fanout
+has a shared adapter or another explicit scaling design.
+
+Install and start:
+
+```sh
+npm ci
+npm test
+npm run build
+npm install --global pm2
+TABULA_ROOM_ALLOWED_ORIGINS=https://tabula.md,https://www.tabula.md \
+TABULA_ROOM_MAX_PAYLOAD_BYTES=1048576 \
+TABULA_ROOM_RATE_LIMIT_PER_MINUTE=600 \
+  pm2 start pm2.production.cjs --update-env
+pm2 save
+```
+
+Configure nginx with `ops/nginx/rooms.tabula.md.conf`, enable the site, and add
+TLS with the VM's certificate automation. Verify WebSocket upgrade headers are
+present and `proxy_read_timeout` is long enough for live editing sessions.
+
 # Docker Shape
 
 The Docker image listens on `PORT` and keeps room membership in memory:
@@ -51,8 +84,10 @@ docker run --detach --name tabula-room \
   tabula-room
 ```
 
-No `/data` volume is required. Live recovery belongs to the Tabula.md app data
-provider, such as Firebase Firestore.
+No `/data` volume is required. Docker remains useful for local runtime checks
+and alternative hosts, but the v0 hosted path is the VM/nginx/pm2 shape above.
+Live recovery belongs to the Tabula.md app data provider, such as Firebase
+Firestore.
 
 # Health Checks
 
@@ -81,8 +116,8 @@ image, starts a container on a random local port, and verifies `/health`.
    npm run test:docker
    ```
 
-2. Start the new container.
-3. Verify `/health`.
+2. Deploy the new build to the VM and restart the pm2 process with updated env.
+3. Verify `/health` through both `127.0.0.1:3002` and `https://rooms.tabula.md`.
 4. Verify the Tabula.md app uses the production room URL and keeps room keys in
    URL fragments.
 5. Watch connection counts, 4xx/5xx rates, restart count, WebSocket upgrade
@@ -90,9 +125,9 @@ image, starts a container on a random local port, and verifies `/health`.
 
 # Rollback
 
-1. Stop routing new traffic to the failing container.
-2. Start the previous image with the same environment.
-3. Verify `/health`.
+1. Stop or reload the failing pm2 process.
+2. Start the previous source checkout/build with the same environment.
+3. Verify `/health` locally and through nginx.
 4. Confirm clients can join rooms, relay encrypted messages, relay volatile
    presence, and receive peer join events.
 

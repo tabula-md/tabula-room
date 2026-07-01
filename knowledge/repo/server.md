@@ -14,6 +14,10 @@ tags: [repo, server, protocol]
 - `protocol.ts`: room id, client id, envelope, payload, and plaintext-field
   validation.
 - `rate-limit.ts`: in-memory rate limit helper for v0.
+- `pm2.production.cjs`: single-process production supervisor config for the
+  hosted VM.
+- `ops/nginx/rooms.tabula.md.conf`: nginx reverse proxy template for
+  HTTP/WebSocket traffic.
 
 # Boundaries
 

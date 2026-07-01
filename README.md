@@ -123,6 +123,27 @@ docker run --rm -p 3002:3002 \
   tabula-room
 ```
 
+## Production: VM + nginx + pm2
+
+The preferred v0 hosted deployment is a small Ubuntu VM running the built Node
+server under pm2, with nginx terminating HTTP/WebSocket traffic for
+`rooms.tabula.md`.
+
+```sh
+npm ci
+npm test
+npm run build
+npm install --global pm2
+TABULA_ROOM_ALLOWED_ORIGINS=https://tabula.md,https://www.tabula.md \
+  pm2 start pm2.production.cjs --update-env
+pm2 save
+```
+
+Use `ops/nginx/rooms.tabula.md.conf` as the nginx site template, then add TLS
+with the VM's certificate automation. The Node process should listen only on
+the private loopback port, usually `127.0.0.1:3002`; public traffic should reach
+the service through nginx.
+
 ## Validation
 
 ```sh
