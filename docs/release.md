@@ -46,7 +46,6 @@ docker build -t tabula-room:1.2.3 .
 docker run --rm --name tabula-room-release-check \
   -p 3002:3002 \
   -e TABULA_ROOM_ALLOWED_ORIGINS=http://localhost:5173 \
-  -v tabula-room-release-check:/data \
   tabula-room:1.2.3
 ```
 
@@ -62,15 +61,12 @@ The response must include:
 { "ok": true, "service": "tabula-room", "version": "1.2.3" }
 ```
 
-Stop the release-check container and remove the temporary volume after
-verification.
+Stop the release-check container after verification.
 
 ## Rollback
 
-Rollback by redeploying the previous source tag or locally built image. Keep the
-same persistent `/data` volume unless release notes explicitly say otherwise.
-Snapshot files are encrypted envelopes plus server metadata only; do not inspect,
-transform, or decrypt them as part of rollback.
+Rollback by redeploying the previous source tag or locally built image. There
+is no Tabula Room data volume to migrate or preserve.
 
-After rollback, verify `/health`, room join, encrypted relay, and snapshot
-restore against the Tabula.md app.
+After rollback, verify `/health`, room join, encrypted relay, volatile relay,
+and peer join/state-init behavior against the Tabula.md app.

@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 
 export const ENVELOPE_VERSION = 1;
 
-export const ENVELOPE_KINDS = ["yjs-update", "presence", "snapshot"] as const;
+export const ENVELOPE_KINDS = ["yjs-update", "presence", "state-init", "snapshot"] as const;
 
 export type EnvelopeKind = (typeof ENVELOPE_KINDS)[number];
 
@@ -19,8 +19,6 @@ export type EncryptedEnvelope = {
 export type RoomMetadata = {
   roomId: string;
   activeConnections: number;
-  snapshotVersion: number | null;
-  updatedAt: string | null;
 };
 
 const roomIdPattern = /^[a-zA-Z0-9_-]{1,160}$/;

@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-Tabula Room is the encrypted collaboration room server for Tabula.md. It relays
-encrypted room messages and stores encrypted room snapshots. The server must
-remain ciphertext-only.
+Tabula Room is the encrypted collaboration room relay for Tabula.md. It relays
+encrypted room messages and does not store live recovery snapshots. The server
+must remain ciphertext-only.
 
 Product direction:
 
@@ -45,9 +45,8 @@ Product direction:
 - `knowledge/index.md`: durable context map for humans and coding agents.
 - `src/server.ts`: Express and Socket.IO room server.
 - `src/protocol.ts`: room id, client id, and encrypted envelope validation.
-- `src/storage/file-store.ts`: local encrypted snapshot persistence.
 - `src/rate-limit.ts`: in-memory rate limiting.
-- `test`: protocol, HTTP, storage, CORS, payload, and WebSocket coverage.
+- `test`: protocol, HTTP, CORS, payload, and WebSocket coverage.
 
 ## Code Style
 
@@ -61,17 +60,17 @@ Product direction:
 - Run `npm test` for protocol and server behavior changes.
 - Run `npm run build` after TypeScript, package, or CI changes.
 - Add tests for any change that touches envelope validation, room membership,
-  CORS, rate limiting, payload limits, or snapshot persistence.
+  CORS, rate limiting, payload limits, or relay behavior.
 
 ## Collaboration Security
 
-Before changing room links, envelopes, snapshots, storage, logging, or relay
+Before changing room links, envelopes, logging, or relay
 behavior, preserve these constraints:
 
 - Room keys stay in the Tabula.md browser URL fragment.
 - Room keys are never sent to this server.
 - Plaintext Markdown is never sent to this server.
-- Server storage contains encrypted envelopes only.
+- This server does not persist room contents or recovery snapshots.
 - Decryption failure is a client concern and must not cause the server to
   overwrite ciphertext with plaintext or fallback content.
 - `roomId` is routing metadata, not an authorization secret.

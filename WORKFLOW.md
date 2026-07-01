@@ -150,7 +150,8 @@ Do not merge changes that violate these constraints:
 - Room keys must not reach the server.
 - Plaintext Markdown must not reach the server.
 - Encrypted envelopes must stay opaque to server code.
-- Snapshot storage must persist ciphertext only.
+- This service must not persist live recovery snapshots. Durable recovery
+  belongs to the Tabula.md app data provider.
 - Logs must not include room keys, plaintext Markdown, or full encrypted
   payloads unless explicitly needed for local debugging and removed before
   merge.

@@ -1,5 +1,4 @@
 import http from "node:http";
-import path from "node:path";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { Server as SocketIOServer, type Socket } from "socket.io";
 import { createRateLimiter, RateLimitError } from "./rate-limit.js";
@@ -10,12 +9,10 @@ import {
   validateEncryptedEnvelope,
   validateRoomId,
 } from "./protocol.js";
-import { FileSnapshotStore } from "./storage/file-store.js";
 import { resolveServiceVersion } from "./version.js";
 
 type ServerOptions = {
   port?: number;
-  dataDir?: string;
   allowedOrigins?: string[] | null;
   maxPayloadBytes?: number;
   rateLimitPerMinute?: number;
@@ -33,14 +30,12 @@ const defaultMaxPayloadBytes = 1024 * 1024;
 const defaultRateLimitPerMinute = 600;
 
 export function createTabulaRoomServer(options: ServerOptions = {}) {
-  const dataDir = options.dataDir ?? process.env.TABULA_ROOM_DATA_DIR ?? path.join(process.cwd(), ".tabula-room", "data");
   const allowedOrigins = options.allowedOrigins ?? parseAllowedOrigins(process.env.TABULA_ROOM_ALLOWED_ORIGINS);
   const maxPayloadBytes = options.maxPayloadBytes ?? numberFromEnv("TABULA_ROOM_MAX_PAYLOAD_BYTES", defaultMaxPayloadBytes);
   const rateLimitPerMinute =
     options.rateLimitPerMinute ?? numberFromEnv("TABULA_ROOM_RATE_LIMIT_PER_MINUTE", defaultRateLimitPerMinute);
   const serviceVersion = resolveServiceVersion();
 
-  const store = new FileSnapshotStore(dataDir);
   const app = express();
   const server = http.createServer(app);
   const rateLimiter = createRateLimiter({ limit: rateLimitPerMinute });
@@ -61,37 +56,7 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
   app.get("/v1/rooms/:roomId", async (request, response, next) => {
     try {
       const roomId = validateRoomId(request.params.roomId);
-      response.json(await roomMetadata(store, roomClients, roomId));
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.get("/v1/rooms/:roomId/snapshot", async (request, response, next) => {
-    try {
-      const roomId = validateRoomId(request.params.roomId);
-      const snapshot = await store.getSnapshot(roomId);
-      if (!snapshot) {
-        response.status(404).json({ error: "Snapshot not found" });
-        return;
-      }
-      response.json(snapshot);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.put("/v1/rooms/:roomId/snapshot", async (request, response, next) => {
-    try {
-      const roomId = validateRoomId(request.params.roomId);
-      rateLimiter.assertAllowed(`snapshot:${request.ip}:${roomId}`);
-      const snapshot = validateEncryptedEnvelope(request.body, {
-        expectedRoomId: roomId,
-        expectedKind: "snapshot",
-        maxPayloadBytes,
-      });
-      await store.writeSnapshot(snapshot);
-      response.status(201).json(await roomMetadata(store, roomClients, roomId));
+      response.json(roomMetadata(roomClients, roomId));
     } catch (error) {
       next(error);
     }
@@ -133,6 +98,7 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
         const peerCount = roomClients.get(roomId)?.size ?? 0;
         acknowledge?.({ ok: true });
         socket.emit("room:joined", { roomId, clientId, peerCount });
+        socket.broadcast.to(roomChannel(roomId)).emit("room:peer-joined", { roomId, clientId });
         if (previousRoomId && previousRoomId !== roomId) {
           emitPeers(io, roomClients, previousRoomId);
         }
@@ -162,6 +128,25 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
       }
     });
 
+    socket.on("room:volatile-message", (payload, acknowledge) => {
+      try {
+        const joined = joinedClients.get(socket.id);
+        if (!joined) {
+          throw new SocketProtocolError("Join a room before sending messages");
+        }
+        rateLimiter.assertAllowed(`volatile:${joined.roomId}:${socket.id}`);
+        const envelope = validateEncryptedEnvelope(payload, {
+          expectedRoomId: joined.roomId,
+          maxPayloadBytes,
+        });
+        socket.volatile.to(roomChannel(joined.roomId)).emit("room:message", envelope);
+        acknowledge?.({ ok: true });
+      } catch (error) {
+        acknowledge?.({ ok: false, error: errorMessage(error) });
+        emitSocketError(socket, error);
+      }
+    });
+
     socket.on("disconnect", () => {
       const joined = joinedClients.get(socket.id);
       if (!joined) {
@@ -177,7 +162,6 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
     app,
     server,
     io,
-    store,
     start(port = options.port ?? numberFromEnv("PORT", defaultPort)) {
       return new Promise<void>((resolve) => {
         server.listen(port, resolve);
@@ -194,14 +178,12 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
   };
 }
 
-async function roomMetadata(
-  store: FileSnapshotStore,
+function roomMetadata(
   roomClients: Map<string, Map<string, string>>,
   roomId: string,
-): Promise<RoomMetadata> {
+): RoomMetadata {
   const activeConnections = roomClients.get(roomId)?.size ?? 0;
-  const metadata = await store.getRoomMetadata(roomId, activeConnections);
-  return { ...metadata, activeConnections };
+  return { roomId, activeConnections };
 }
 
 async function joinRoom({
@@ -262,7 +244,7 @@ function applyCors(allowedOrigins: string[] | null) {
       response.setHeader("access-control-allow-origin", origin);
       response.setHeader("vary", "origin");
     }
-    response.setHeader("access-control-allow-methods", "GET,PUT,OPTIONS");
+    response.setHeader("access-control-allow-methods", "GET,OPTIONS");
     response.setHeader("access-control-allow-headers", "content-type");
     if (request.method === "OPTIONS") {
       response.status(204).end();

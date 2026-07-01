@@ -1,7 +1,7 @@
 ---
 type: Repository Area
 title: Server repository map
-description: TypeScript server modules for relay, protocol validation, storage, and rate limiting.
+description: TypeScript server modules for relay, protocol validation, and rate limiting.
 resource: repo:/src
 tags: [repo, server, protocol]
 ---
@@ -13,13 +13,12 @@ tags: [repo, server, protocol]
 - `server.ts`: Express HTTP API and Socket.IO relay.
 - `protocol.ts`: room id, client id, envelope, payload, and plaintext-field
   validation.
-- `storage/file-store.ts`: local file-backed encrypted snapshot persistence.
 - `rate-limit.ts`: in-memory rate limit helper for v0.
 
 # Boundaries
 
 - Keep protocol validation independent from HTTP and Socket.IO wiring.
-- Keep storage responsible for encrypted snapshot envelopes only.
+- Keep the server relay-only; do not add room recovery persistence here.
 - Keep rate limiting generic; do not encode document semantics into it.
 - Keep tests close to protocol and runtime behavior in `test/`.
 
@@ -28,7 +27,7 @@ tags: [repo, server, protocol]
 - Protocol shape changes need README updates.
 - Envelope validation changes need unit tests.
 - HTTP or WebSocket behavior changes need server tests.
-- Storage changes must preserve ciphertext-only persistence.
+- Persistence changes require a new architecture decision.
 
 # Related
 
