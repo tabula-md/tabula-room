@@ -141,6 +141,18 @@ docker run --rm -p 3002:3002 \
   tabula-room
 ```
 
+Merges to `main` publish production images to GitHub Container Registry:
+
+```text
+ghcr.io/tabula-md/tabula-room:latest
+ghcr.io/tabula-md/tabula-room:sha-<commit-sha>
+```
+
+The publish workflow uses the repository `GITHUB_TOKEN` package permission and
+does not require production server SSH credentials. A VM or container host can
+pull a pinned `sha-<commit-sha>` image and restart the service through its own
+deployment process.
+
 ## Validation
 
 ```sh
