@@ -4,10 +4,10 @@ This document covers Tabula Room source releases only. Tabula Room remains the
 ciphertext-only collaboration room server; it does not serve pages, plaintext
 Markdown, room keys, or generated documents.
 
-Tabula Room does not publish an official Docker image for v0. The repository
-ships source, a Dockerfile, pm2 production config, nginx template, and
-CI/runtime checks. Maintainers deploy a tagged checkout to the hosted VM or
-build a Docker image locally when they need one.
+Tabula Room publishes Docker images to GitHub Container Registry from `main`.
+The repository also ships source, a Dockerfile, pm2 production config, nginx
+template, and CI/runtime checks. Maintainers can deploy a tagged checkout to the
+hosted VM or pull a pinned Docker image when they need one.
 
 ## Before Tagging
 
@@ -63,6 +63,19 @@ The response must include:
 ```
 
 Stop the release-check container after verification.
+
+## Published Image
+
+Merges to `main` publish Docker images to GitHub Container Registry:
+
+```text
+ghcr.io/tabula-md/tabula-room:latest
+ghcr.io/tabula-md/tabula-room:sha-<commit-sha>
+```
+
+Use the immutable `sha-<commit-sha>` tag for production rollouts. Keep VM,
+nginx, pm2, or container-orchestrator credentials outside this public
+repository; this workflow publishes the artifact only.
 
 ## Deploy To Hosted VM
 
