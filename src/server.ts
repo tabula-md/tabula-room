@@ -45,6 +45,16 @@ export function createTabulaRoomServer(options: ServerOptions = {}) {
   app.use(applyCors(allowedOrigins));
   app.use(express.json({ limit: `${maxPayloadBytes}b` }));
 
+  app.get("/", (_request, response) => {
+    response.json({
+      ok: true,
+      service: "tabula-room",
+      description: "Encrypted live-collaboration relay for Tabula.md.",
+      health: "/health",
+      version: serviceVersion,
+    });
+  });
+
   app.get("/health", (_request, response) => {
     response.json({
       ok: true,
