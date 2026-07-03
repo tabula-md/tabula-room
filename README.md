@@ -110,27 +110,30 @@ access. Browser requests with an `Origin` header must match the allowlist.
 
 ## Production
 
-The hosted v0 deployment runs the built Node server on a small Ubuntu VM under
-pm2, with nginx terminating HTTP and WebSocket traffic for `rooms.tabula.md`.
+Run Tabula Room as a single Node process or container behind a
+TLS/WebSocket-capable edge. The service is stateless: room membership and peer
+fanout live in memory, and durable recovery belongs to the app data provider.
 
 ```sh
 npm ci
 npm test
 npm run build
-npm install --global pm2
 
-TABULA_ROOM_ALLOWED_ORIGINS=https://tabula.md,https://www.tabula.md \
+TABULA_ROOM_ALLOWED_ORIGINS=https://app.example.com \
 TABULA_ROOM_MAX_PAYLOAD_BYTES=1048576 \
 TABULA_ROOM_RATE_LIMIT_PER_MINUTE=600 \
 PORT=3002 \
-pm2 start npm --name tabula-room -- start
-
-pm2 save
+npm start
 ```
 
-Use `ops/nginx/rooms.tabula.md.conf` as the nginx site template. The Node
-process should listen on loopback, usually `127.0.0.1:3002`; public traffic
-should reach the service through nginx.
+Public deployments should:
+
+- preserve WebSocket upgrades and long-lived connections;
+- set a strict `TABULA_ROOM_ALLOWED_ORIGINS` allowlist;
+- keep room keys, plaintext, URL fragments, and full encrypted envelopes out of
+  logs;
+- keep provider-specific rollout steps, credentials, hostnames, and proxy
+  templates outside the public repository.
 
 ## Docker
 
@@ -149,9 +152,8 @@ ghcr.io/tabula-md/tabula-room:sha-<commit-sha>
 ```
 
 The publish workflow uses the repository `GITHUB_TOKEN` package permission and
-does not require production server SSH credentials. A VM or container host can
-pull a pinned `sha-<commit-sha>` image and restart the service through its own
-deployment process.
+does not require production server credentials. Operators can pull a pinned
+`sha-<commit-sha>` image into their own container host or deployment system.
 
 ## Validation
 
@@ -160,11 +162,6 @@ npm test
 npm run build
 npm run test:docker
 ```
-
-## Maintainers
-
-For workflow and release operations, see `WORKFLOW.md`, `knowledge/`, and
-`docs/adr/`. Report private security issues through `SECURITY.md`.
 
 ## Backed By
 
