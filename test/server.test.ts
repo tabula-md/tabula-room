@@ -57,7 +57,17 @@ describe("tabula room server", () => {
     }
   });
 
-  it("serves health and room metadata", async () => {
+  it("serves service root, health, and room metadata", async () => {
+    await request(baseUrl).get("/").expect(200).expect(({ body }) => {
+      expect(body).toEqual({
+        ok: true,
+        service: "tabula-room",
+        description: "Encrypted live-collaboration relay for Tabula.md.",
+        health: "/health",
+        version: packageJson.version,
+      });
+    });
+
     await request(baseUrl).get("/health").expect(200).expect(({ body }) => {
       expect(body).toEqual({ ok: true, service: "tabula-room", version: packageJson.version });
     });

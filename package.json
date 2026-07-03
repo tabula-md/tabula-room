@@ -13,8 +13,9 @@
     "dev:watch": "tsx watch src/server.ts",
     "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
+    "surface:check": "node scripts/public-surface-check.mjs",
     "test:docker": "node scripts/docker-smoke.mjs",
-    "test": "vitest run",
+    "test": "vitest run && npm run surface:check",
     "test:watch": "vitest"
   },
   "dependencies": {

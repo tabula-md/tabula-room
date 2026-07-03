@@ -89,6 +89,8 @@ relay does not persist it.
 
 ## HTTP API
 
+- `GET /`
+  - returns service metadata and the health-check path
 - `GET /health`
   - returns `{ ok: true, service: "tabula-room", version }`
 - `GET /v1/rooms/:roomId`
@@ -108,7 +110,7 @@ See `.env.example`.
 Requests without an `Origin` header are allowed for server-to-server and CLI
 access. Browser requests with an `Origin` header must match the allowlist.
 
-## Production
+## Self-Hosting
 
 Run Tabula Room as a single Node process or container behind a
 TLS/WebSocket-capable edge. The service is stateless: room membership and peer
@@ -143,17 +145,6 @@ docker run --rm -p 3002:3002 \
   -e TABULA_ROOM_ALLOWED_ORIGINS=http://localhost:5173 \
   tabula-room
 ```
-
-Merges to `main` publish production images to GitHub Container Registry:
-
-```text
-ghcr.io/tabula-md/tabula-room:latest
-ghcr.io/tabula-md/tabula-room:sha-<commit-sha>
-```
-
-The publish workflow uses the repository `GITHUB_TOKEN` package permission and
-does not require production server credentials. Operators can pull a pinned
-`sha-<commit-sha>` image into their own container host or deployment system.
 
 ## Validation
 
