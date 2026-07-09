@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 
 export const ENVELOPE_VERSION = 1;
 
-export const ENVELOPE_KINDS = ["yjs-update", "presence", "state-init", "snapshot"] as const;
+export const ENVELOPE_KINDS = ["yjs-update", "presence", "state-init", "snapshot", "room-event"] as const;
 
 export type EnvelopeKind = (typeof ENVELOPE_KINDS)[number];
 
