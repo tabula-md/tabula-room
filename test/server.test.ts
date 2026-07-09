@@ -178,6 +178,33 @@ describe("tabula room server", () => {
     await notEchoed;
   });
 
+  it("relays encrypted room events as opaque ciphertext", async () => {
+    const first = connect();
+    const second = connect();
+    await waitForConnect(first);
+    await waitForConnect(second);
+
+    await joinClient(first, "room_123", "client_a");
+    await joinClient(second, "room_123", "client_b");
+
+    const received = waitForEvent(first, "room:message");
+    const notEchoed = waitForNoEvent(second, "room:message");
+    await emitWithAck(second, "room:message", {
+      ...snapshot,
+      kind: "room-event",
+      version: 2,
+      ciphertext: "ZW5jcnlwdGVkX3Jvb21fZXZlbnQ",
+    });
+
+    await expect(received).resolves.toMatchObject({
+      roomId: "room_123",
+      kind: "room-event",
+      version: 2,
+      ciphertext: "ZW5jcnlwdGVkX3Jvb21fZXZlbnQ",
+    });
+    await notEchoed;
+  });
+
   it("relays volatile encrypted room messages without echoing the sender", async () => {
     const first = connect();
     const second = connect();
@@ -200,6 +227,32 @@ describe("tabula room server", () => {
       roomId: "room_123",
       kind: "presence",
       ciphertext: "dm9sYXRpbGU",
+    });
+    await notEchoed;
+  });
+
+  it("relays volatile encrypted room events without interpreting them", async () => {
+    const first = connect();
+    const second = connect();
+    await waitForConnect(first);
+    await waitForConnect(second);
+
+    await joinClient(first, "room_123", "client_a");
+    await joinClient(second, "room_123", "client_b");
+
+    const received = waitForEvent(first, "room:message");
+    const notEchoed = waitForNoEvent(second, "room:message");
+    await emitWithAck(second, "room:volatile-message", {
+      ...snapshot,
+      kind: "room-event",
+      version: 2,
+      ciphertext: "dm9sYXRpbGVfcm9vbV9ldmVudA",
+    });
+
+    await expect(received).resolves.toMatchObject({
+      roomId: "room_123",
+      kind: "room-event",
+      ciphertext: "dm9sYXRpbGVfcm9vbV9ldmVudA",
     });
     await notEchoed;
   });
@@ -284,6 +337,23 @@ describe("tabula room server", () => {
       /Invalid envelope iv/,
     );
     await expect(errorEvent).resolves.toEqual({ error: "Invalid envelope iv" });
+    expect(client.connected).toBe(true);
+  });
+
+  it("rejects plaintext-like fields on room-event envelopes", async () => {
+    const client = connect();
+    await waitForConnect(client);
+    await joinClient(client, "room_123", "client_a");
+
+    const errorEvent = waitForEvent<{ error: string }>(client, "room:error");
+    await expect(
+      emitWithAck(client, "room:message", {
+        ...snapshot,
+        kind: "room-event",
+        text: "plain text must not reach the relay",
+      }),
+    ).rejects.toThrow(/text/);
+    await expect(errorEvent).resolves.toEqual({ error: "Encrypted envelope must not include text" });
     expect(client.connected).toBe(true);
   });
 

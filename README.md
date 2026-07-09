@@ -14,6 +14,7 @@ only ciphertext to this server.
 
 - Relay encrypted document updates between connected clients.
 - Relay encrypted volatile messages for presence and cursor state.
+- Relay encrypted room events for first-class human and agent collaboration.
 - Track room membership metadata needed for peer discovery.
 - Reject room keys, plaintext-like fields, oversized payloads, disallowed
   origins, and malformed envelopes.
@@ -83,9 +84,10 @@ Encrypted envelopes use this shape:
 }
 ```
 
-Allowed `kind` values are `yjs-update`, `presence`, `state-init`, and
-`snapshot`. `snapshot` is accepted as an opaque compatibility envelope, but this
-relay does not persist it.
+Allowed `kind` values are `yjs-update`, `presence`, `state-init`, `snapshot`,
+and `room-event`. `snapshot` is accepted as an opaque compatibility envelope,
+and `room-event` is accepted for encrypted actor/proposal events, but this relay
+does not persist or interpret either one.
 
 ## HTTP API
 
