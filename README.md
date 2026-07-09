@@ -12,9 +12,8 @@ only ciphertext to this server.
 
 ## Role
 
-- Relay encrypted document updates between connected clients.
+- Relay encrypted room events between connected clients.
 - Relay encrypted volatile messages for presence and cursor state.
-- Relay encrypted room events for first-class human and agent collaboration.
 - Track room membership metadata needed for peer discovery.
 - Reject room keys, plaintext-like fields, oversized payloads, disallowed
   origins, and malformed envelopes.
@@ -22,6 +21,10 @@ only ciphertext to this server.
 Tabula Room does not decrypt Markdown, store recovery snapshots, serve the web
 app, index content, manage accounts, or implement billing. Live-room recovery
 belongs to the Tabula.md hosted app data provider, not to this relay.
+
+The canonical Tabula collaboration model is a workspace room. A one-document
+session is represented by the clients as a workspace with one document. This
+server does not implement a separate single-document room model.
 
 ## Development
 
@@ -68,7 +71,7 @@ Socket.IO events:
 
 `room:message` and `room:volatile-message` are relayed to other sockets in the
 room, not echoed to the sender. `room:peer-joined` lets an existing peer send an
-encrypted `state-init` update to the new peer.
+encrypted state update to the new peer.
 
 Encrypted envelopes use this shape:
 
@@ -84,10 +87,12 @@ Encrypted envelopes use this shape:
 }
 ```
 
-Allowed `kind` values are `yjs-update`, `presence`, `state-init`, `snapshot`,
-and `room-event`. `snapshot` is accepted as an opaque compatibility envelope,
-and `room-event` is accepted for encrypted actor/proposal events, but this relay
-does not persist or interpret either one.
+Allowed `kind` values are `room-event`, `presence`, `yjs-update`, `state-init`,
+and `snapshot`. `room-event` is the canonical workspace collaboration envelope
+used for actor, workspace, document, and proposal events. `yjs-update` and
+`state-init` remain encrypted transport envelopes for client-side document state
+sync. `snapshot` is accepted as an opaque compatibility envelope. This relay
+does not persist, decrypt, or interpret any kind.
 
 ## HTTP API
 
