@@ -1,7 +1,7 @@
 {
   "name": "tabula-room",
   "version": "0.1.0",
-  "description": "Encrypted collaboration room server for Tabula.md.",
+  "description": "Encrypted live-collaboration relay for Tabula.md.",
   "license": "MIT",
   "type": "module",
   "main": "dist/src/server.js",
