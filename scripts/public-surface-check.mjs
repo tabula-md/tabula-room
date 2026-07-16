@@ -15,7 +15,6 @@ const forbiddenPaths = new Map([
   ["TODO.ko.md", "maintainer planning notes belong outside the public OSS repo"],
   ["CHANGELOG.md", "release notes should be published through GitHub Releases"],
   ["CONTRIBUTING.md", "public contribution policy is not ready yet"],
-  ["SECURITY.md", "public security policy is not ready yet"],
   ["pm2.json", "provider-specific process config belongs outside the public OSS repo"],
   ["pm2.production.json", "provider-specific process config belongs outside the public OSS repo"],
 ]);
