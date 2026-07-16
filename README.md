@@ -1,11 +1,17 @@
-# Tabula Room
+<p align="center">
+  <a href="https://tabula.md">
+    <img src="https://tabula.md/favicon.svg" alt="Tabula.md" width="56" />
+  </a>
+</p>
+
+# Tabula.md Room
 
 Encrypted live-collaboration relay for [Tabula.md](https://tabula.md).
 
 Service: [rooms.tabula.md](https://rooms.tabula.md) · Source:
 [tabula-md/tabula-room](https://github.com/tabula-md/tabula-room)
 
-Tabula Room is intentionally small. It accepts Socket.IO connections, groups
+Tabula.md Room is intentionally small. It accepts Socket.IO connections, groups
 clients by room id, and relays encrypted envelopes between peers. The browser
 creates the room key, keeps it in the URL fragment, encrypts locally, and sends
 only ciphertext to this server.
@@ -119,7 +125,7 @@ access. Browser requests with an `Origin` header must match the allowlist.
 
 ## Self-Hosting
 
-Run Tabula Room as a single Node process or container behind a
+Run Tabula.md Room as a single Node process or container behind a
 TLS/WebSocket-capable edge. The service is stateless: room membership and peer
 fanout live in memory, and durable recovery belongs to the app data provider.
 
@@ -163,7 +169,7 @@ npm run test:docker
 
 ## Backed By
 
-Tabula Room is backed by
+Tabula.md Room is backed by
 [Marker Inc Korea](https://github.com/Marker-Inc-Korea).
 
 ## License
