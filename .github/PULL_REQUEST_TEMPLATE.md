@@ -1,34 +1,11 @@
-## Summary
+## Why
 
 -
 
-## Review Focus
+## What
 
 -
 
-## Implementation Notes
+## Verify
 
 -
-
-## Agent
-
-- Tool: Unknown
-- Session: Unknown
-
-## Validation
-
-- Automated: None.
-- Manual: None.
-- Not run: None.
-
-## Security Impact
-
--
-
-## Risk
-
--
-
-## Evidence
-
-- Not visual.
