@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { validateClientId, validateEncryptedEnvelope, validateRoomId } from "../src/protocol.js";
+import { ENVELOPE_KINDS, validateClientId, validateEncryptedEnvelope, validateRoomId } from "../src/protocol.js";
 
 const envelope = {
   v: 1,
   roomId: "room_123",
-  kind: "snapshot",
+  kind: "room-event",
   version: 1,
   iv: "YWJjMTIz",
   ciphertext: "Y2lwaGVydGV4dA",
@@ -12,6 +12,10 @@ const envelope = {
 } as const;
 
 describe("protocol validation", () => {
+  it("exposes only the room event envelope contract", () => {
+    expect(ENVELOPE_KINDS).toEqual(["room-event"]);
+  });
+
   it("accepts safe room and client ids", () => {
     expect(validateRoomId("room_123-abc")).toBe("room_123-abc");
     expect(validateClientId("client_123-abc")).toBe("client_123-abc");
@@ -32,7 +36,9 @@ describe("protocol validation", () => {
   });
 
   it("validates encrypted envelopes without decrypting content", () => {
-    expect(validateEncryptedEnvelope(envelope, { expectedRoomId: "room_123", expectedKind: "snapshot" })).toEqual(envelope);
+    expect(validateEncryptedEnvelope(envelope, { expectedRoomId: "room_123", expectedKind: "room-event" })).toEqual(
+      envelope,
+    );
   });
 
   it("rejects plaintext and key fields", () => {
@@ -67,8 +73,6 @@ describe("protocol validation", () => {
     ).toThrow(/Unsupported encrypted envelope field author/);
     expect(() => validateEncryptedEnvelope({ ...envelope, v: 2 })).toThrow(/Unsupported envelope version/);
     expect(() => validateEncryptedEnvelope({ ...envelope, kind: "markdown" })).toThrow(/Invalid envelope kind/);
-    expect(validateEncryptedEnvelope({ ...envelope, kind: "state-init" }).kind).toBe("state-init");
-    expect(validateEncryptedEnvelope({ ...envelope, kind: "room-event" }).kind).toBe("room-event");
     expect(() => validateEncryptedEnvelope({ ...envelope, version: -1 })).toThrow(/Invalid envelope version counter/);
     expect(() => validateEncryptedEnvelope({ ...envelope, version: 1.5 })).toThrow(/Invalid envelope version counter/);
   });

@@ -20,10 +20,10 @@ type PeersPayload = {
 
 type TestServerOptions = Parameters<typeof createTabulaRoomServer>[0];
 
-const snapshot = {
+const roomEventEnvelope = {
   v: 1,
   roomId: "room_123",
-  kind: "snapshot",
+  kind: "room-event",
   version: 1,
   iv: "YWJjMTIz",
   ciphertext: "Y2lwaGVydGV4dA",
@@ -97,7 +97,7 @@ describe("tabula room server", () => {
 
   it("does not expose room snapshot HTTP storage", async () => {
     await request(baseUrl).get("/v1/rooms/room_123/snapshot").expect(404);
-    await request(baseUrl).put("/v1/rooms/room_123/snapshot").send(snapshot).expect(404);
+    await request(baseUrl).put("/v1/rooms/room_123/snapshot").send(roomEventEnvelope).expect(404);
   });
 
   it("allows configured CORS origins and rejects disallowed origins", async () => {
@@ -151,33 +151,6 @@ describe("tabula room server", () => {
       .expect("access-control-allow-headers", "Content-Type");
   });
 
-  it("relays encrypted room messages between joined clients", async () => {
-    const first = connect();
-    const second = connect();
-    await waitForConnect(first);
-    await waitForConnect(second);
-
-    await joinClient(first, "room_123", "client_a");
-    await joinClient(second, "room_123", "client_b");
-
-    const received = waitForEvent(first, "room:message");
-    const notEchoed = waitForNoEvent(second, "room:message");
-    await emitWithAck(second, "room:message", {
-      ...snapshot,
-      kind: "yjs-update",
-      version: 2,
-      ciphertext: "ZW5jcnlwdGVkX3VwZGF0ZQ",
-    });
-
-    await expect(received).resolves.toMatchObject({
-      roomId: "room_123",
-      kind: "yjs-update",
-      version: 2,
-      ciphertext: "ZW5jcnlwdGVkX3VwZGF0ZQ",
-    });
-    await notEchoed;
-  });
-
   it("relays encrypted room events as opaque ciphertext", async () => {
     const first = connect();
     const second = connect();
@@ -190,7 +163,7 @@ describe("tabula room server", () => {
     const received = waitForEvent(first, "room:message");
     const notEchoed = waitForNoEvent(second, "room:message");
     await emitWithAck(second, "room:message", {
-      ...snapshot,
+      ...roomEventEnvelope,
       kind: "room-event",
       version: 2,
       ciphertext: "ZW5jcnlwdGVkX3Jvb21fZXZlbnQ",
@@ -201,32 +174,6 @@ describe("tabula room server", () => {
       kind: "room-event",
       version: 2,
       ciphertext: "ZW5jcnlwdGVkX3Jvb21fZXZlbnQ",
-    });
-    await notEchoed;
-  });
-
-  it("relays volatile encrypted room messages without echoing the sender", async () => {
-    const first = connect();
-    const second = connect();
-    await waitForConnect(first);
-    await waitForConnect(second);
-
-    await joinClient(first, "room_123", "client_a");
-    await joinClient(second, "room_123", "client_b");
-
-    const received = waitForEvent(first, "room:message");
-    const notEchoed = waitForNoEvent(second, "room:message");
-    await emitWithAck(second, "room:volatile-message", {
-      ...snapshot,
-      kind: "presence",
-      version: 2,
-      ciphertext: "dm9sYXRpbGU",
-    });
-
-    await expect(received).resolves.toMatchObject({
-      roomId: "room_123",
-      kind: "presence",
-      ciphertext: "dm9sYXRpbGU",
     });
     await notEchoed;
   });
@@ -243,7 +190,7 @@ describe("tabula room server", () => {
     const received = waitForEvent(first, "room:message");
     const notEchoed = waitForNoEvent(second, "room:message");
     await emitWithAck(second, "room:volatile-message", {
-      ...snapshot,
+      ...roomEventEnvelope,
       kind: "room-event",
       version: 2,
       ciphertext: "dm9sYXRpbGVfcm9vbV9ldmVudA",
@@ -333,10 +280,23 @@ describe("tabula room server", () => {
     await joinClient(client, "room_123", "client_a");
 
     const errorEvent = waitForEvent<{ error: string }>(client, "room:error");
-    await expect(emitWithAck(client, "room:message", { ...snapshot, iv: "bad=" })).rejects.toThrow(
+    await expect(emitWithAck(client, "room:message", { ...roomEventEnvelope, iv: "bad=" })).rejects.toThrow(
       /Invalid envelope iv/,
     );
     await expect(errorEvent).resolves.toEqual({ error: "Invalid envelope iv" });
+    expect(client.connected).toBe(true);
+  });
+
+  it("rejects unsupported envelope kinds without disconnecting the client", async () => {
+    const client = connect();
+    await waitForConnect(client);
+    await joinClient(client, "room_123", "client_a");
+
+    const errorEvent = waitForEvent<{ error: string }>(client, "room:error");
+    await expect(
+      emitWithAck(client, "room:message", { ...roomEventEnvelope, kind: "unsupported" }),
+    ).rejects.toThrow(/Invalid envelope kind/);
+    await expect(errorEvent).resolves.toEqual({ error: "Invalid envelope kind" });
     expect(client.connected).toBe(true);
   });
 
@@ -348,7 +308,7 @@ describe("tabula room server", () => {
     const errorEvent = waitForEvent<{ error: string }>(client, "room:error");
     await expect(
       emitWithAck(client, "room:message", {
-        ...snapshot,
+        ...roomEventEnvelope,
         kind: "room-event",
         text: "plain text must not reach the relay",
       }),
@@ -363,10 +323,10 @@ describe("tabula room server", () => {
     await waitForConnect(client);
     await joinClient(client, "room_123", "client_a");
 
-    await emitWithAck(client, "room:message", { ...snapshot, kind: "presence" });
+    await emitWithAck(client, "room:message", roomEventEnvelope);
 
     const errorEvent = waitForEvent<{ error: string }>(client, "room:error");
-    await expect(emitWithAck(client, "room:message", { ...snapshot, kind: "presence", version: 2 })).rejects.toThrow(
+    await expect(emitWithAck(client, "room:message", { ...roomEventEnvelope, version: 2 })).rejects.toThrow(
       /Rate limit exceeded/,
     );
     await expect(errorEvent).resolves.toEqual({ error: "Rate limit exceeded" });
@@ -380,12 +340,11 @@ describe("tabula room server", () => {
     await joinClient(first, "room_123", "client_a");
     await joinClient(second, "room_123", "client_b");
 
-    await emitWithAck(first, "room:message", { ...snapshot, kind: "presence" });
-    await emitWithAck(first, "room:message", { ...snapshot, kind: "presence", version: 2 });
+    await emitWithAck(first, "room:message", roomEventEnvelope);
+    await emitWithAck(first, "room:message", { ...roomEventEnvelope, version: 2 });
     await expect(
       emitWithAck(second, "room:message", {
-        ...snapshot,
-        kind: "presence",
+        ...roomEventEnvelope,
         version: 3,
       }),
     ).resolves.toBeUndefined();
@@ -398,8 +357,7 @@ describe("tabula room server", () => {
 
     const disconnected = waitForEvent<string>(client, "disconnect");
     client.emit("room:message", {
-      ...snapshot,
-      kind: "yjs-update",
+      ...roomEventEnvelope,
       ciphertext: "a".repeat(50_000),
     });
 
