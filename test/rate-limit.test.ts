@@ -10,10 +10,10 @@ describe("rate limiter", () => {
       now: () => timestamp,
     });
 
-    limiter.assertAllowed("snapshot:127.0.0.1:room_123");
-    limiter.assertAllowed("snapshot:127.0.0.1:room_123");
+    limiter.assertAllowed("room-event:127.0.0.1:room_123");
+    limiter.assertAllowed("room-event:127.0.0.1:room_123");
 
-    expect(() => limiter.assertAllowed("snapshot:127.0.0.1:room_123")).toThrow(RateLimitError);
+    expect(() => limiter.assertAllowed("room-event:127.0.0.1:room_123")).toThrow(RateLimitError);
     expect(limiter.bucketCount()).toBe(1);
   });
 
